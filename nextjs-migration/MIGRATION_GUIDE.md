@@ -30,7 +30,7 @@ This directory contains a **production-ready full-stack layout** configured spec
 
 ---
 
-## 💳 Step 2. Razorpay Payment Gateway Integration
+## 💳 Step 2. Razorpay & Dodo Payments Gateway Integration
 
 1. **Activate Razorpay Dashboard**:
    - Sign up at [Razorpay Developer Portal](https://razorpay.com).
@@ -38,10 +38,15 @@ This directory contains a **production-ready full-stack layout** configured spec
    - Go to **Account & Settings > API Keys > Generate Key**.
    - Save your `Key ID` and `Key Secret` privately.
 
-2. **Inject Webhook Listeners (Optional but Recommended)**:
-   - To securely confirm orders even if a browser is closed mid-checkout, set up a Razorpay Webhook in the Razorpay dashboard.
+2. **Dodo Payments Setup**:
+   - Sign up at [Dodo Payments Dashboard](https://dodopayments.com).
+   - Generate your API token under the settings panel.
+   - Save your `DODO_PAYMENTS_API_KEY` to configure backend checkout links dynamically for international clients, card processing, or local alternative payments.
+
+3. **Inject Webhook Listeners (Optional but Recommended)**:
+   - To securely confirm orders even if a browser is closed mid-checkout, set up a Razorpay or Dodo Payments Webhook.
    - Point the Webhook URL to: `https://sugora.com/api/payment-webhook`
-   - Subscribe to the dynamic event: `payment.captured` and set a Webhook Secret.
+   - Subscribe to the dynamic events like `payment.captured` (Razorpay) or `payment.succeeded` (Dodo Payments) and set helper secrets.
 
 ---
 
@@ -64,6 +69,9 @@ SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 # RAZORPAY CONFIG
 RAZORPAY_KEY_ID="rzp_test_yourKeyID"
 RAZORPAY_KEY_SECRET="yourSecretValue"
+
+# DODO PAYMENTS CONFIG
+DODO_PAYMENTS_API_KEY="your-dodo-api-key"
 
 # GEMINI SYSTEM CONFIG
 GEMINI_API_KEY="your-gemini-ai-key"
