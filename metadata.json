@@ -1,0 +1,8 @@
+{
+  "name": "Sugora",
+  "description": "Premium multi-module platform featuring Sugora Tree, WhatsApp-style Chat, AI Chat, Shop Marketplace, and comprehensive Wallet, KYC, and Affiliate systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
