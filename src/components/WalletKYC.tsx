@@ -13,7 +13,7 @@ interface WalletKYCProps {
   transactions: WalletTransaction[];
   kycStatus: 'unsubmitted' | 'pending' | 'approved' | 'rejected';
   onAddFunds: (amount: number) => void;
-  onWithdrawFunds: (amount: number, method: 'UPI' | 'Bank Transfer', details: string) => boolean | null;
+  onWithdrawFunds: (amount: number, method: 'UPI' | 'Bank Transfer', details: string) => Promise<boolean> | boolean | null;
   onSubmitKYC: (fullName: string, dob: string, address: string, pan: string, aadhaar: string) => void;
 }
 
@@ -52,7 +52,7 @@ export default function WalletKYC({
     }
   };
 
-  const executeWithdrawFunds = () => {
+  const executeWithdrawFunds = async () => {
     const amt = parseFloat(withdrawAmount);
     if (isNaN(amt) || amt <= 0) return;
 
@@ -71,7 +71,7 @@ export default function WalletKYC({
       return;
     }
 
-    const success = onWithdrawFunds(amt, withdrawMethod, withdrawDetails);
+    const success = await onWithdrawFunds(amt, withdrawMethod, withdrawDetails);
     if (success) {
       setShowWithdrawModal(false);
       setWithdrawAmount('100');

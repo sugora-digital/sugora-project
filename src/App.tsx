@@ -41,6 +41,25 @@ import AdminConsole from './components/AdminConsole';
 import SupportConsole from './components/SupportConsole';
 import SugoraLogo from './components/SugoraLogo';
 
+// Supabase synchronization imports
+import {
+  isSupabaseConfigured,
+  supabase,
+  syncProfile,
+  fetchProfiles,
+  syncWallet,
+  insertTransaction,
+  fetchTransactionsByWallet,
+  syncKYCRequest,
+  fetchAllKYCRequests,
+  syncWithdrawRequest,
+  fetchAllWithdrawRequests,
+  fetchProducts,
+  insertProduct,
+  syncSiteSettings,
+  fetchSiteSettings
+} from './lib/supabaseClient';
+
 export default function App() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -53,6 +72,13 @@ export default function App() {
   const [usernameInput, setUsernameInput] = useState<string>('');
   const [avatarInput, setAvatarInput] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150');
   const [usernameError, setUsernameError] = useState<string>('');
+
+  // Credentials for Supabase Auth Live Sync
+  const [emailInput, setEmailInput] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [isSignInMode, setIsSignInMode] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string>('');
 
   // Global Interactive Database States
   const [usersList, setUsersList] = useState<Profile[]>(INITIAL_MOCK_USERS);
@@ -85,9 +111,141 @@ export default function App() {
   // Purchase state logic
   const [ownedProductIds, setOwnedProductIds] = useState<string[]>([]);
 
-  // Seed default transaction history
+  // ------------------------------------------------------------------
+  // SUPABASE ACTIVE INITIALIZATIONS & ASYNC LOADER EFFECTS
+  // ------------------------------------------------------------------
+
+  // Load User Data helper
+  const loadUserSupabaseData = async (user: any) => {
+    try {
+      // 1. Fetch profile
+      const { data: dbProfile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (dbProfile) {
+        setProfile(dbProfile as Profile);
+        
+        // 2. Fetch or create Wallet
+        const { data: dbWallet } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (dbWallet) {
+          setWallet(dbWallet as WalletType);
+          const dbTx = await fetchTransactionsByWallet(dbWallet.id);
+          setTransactionsList(dbTx as WalletTransaction[]);
+        } else {
+          const newW: WalletType = {
+            id: `wallet-${Date.now()}`,
+            user_id: user.id,
+            balance: 0.00,
+            promo_balance: 100.00, // starting Rs 100 bonus
+            withdrawn: 0,
+            updated_at: new Date().toISOString()
+          };
+          const syncedW = await syncWallet(newW);
+          if (syncedW) setWallet(syncedW as WalletType);
+        }
+
+        // 3. Fetch KYC request
+        const { data: dbKyc } = await supabase
+          .from('kyc_requests')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (dbKyc) {
+          setKycRequest(dbKyc as KYCRequest);
+          setKycStatus(dbKyc.status as KYCRequest['status']);
+        }
+
+        // 4. Fetch withdrawal requests
+        const { data: dbWithdraws } = await supabase
+          .from('withdraw_requests')
+          .select('*')
+          .eq('user_id', user.id);
+        if (dbWithdraws) {
+          setWithdrawRequests(dbWithdraws as WithdrawRequest[]);
+        }
+      } else {
+        // Logged into Auth but profile doesn't exist yet, prompt onboarding
+        setProfile(null);
+        setNameInput(user.user_metadata?.name || '');
+        setUsernameInput(user.user_metadata?.username || '');
+        setEmailInput(user.email || '');
+        setSignUpStep(1);
+      }
+    } catch (err) {
+      console.error('[loadUserSupabaseData Err]:', err);
+    }
+  };
+
+  // Check live session on mount
   useEffect(() => {
-    setTransactionsList(INITIAL_TRANSACTIONS('wallet-current'));
+    async function checkSession() {
+      if (!isSupabaseConfigured()) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await loadUserSupabaseData(user);
+        }
+      } catch (err) {
+        console.error('[checkSession Err]:', err);
+      }
+    }
+    checkSession();
+  }, []);
+
+  // Sync auth state changes dynamically
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await loadUserSupabaseData(session.user);
+      } else {
+        // signed out
+        if (profile) handleLogOutSession();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Load global datasets (products, other profiles, settings) from DB
+  useEffect(() => {
+    async function loadGlobalDatasets() {
+      if (!isSupabaseConfigured()) {
+        // Fallback seed for demo
+        setTransactionsList(INITIAL_TRANSACTIONS('wallet-current'));
+        return;
+      }
+      
+      try {
+        const dbProducts = await fetchProducts();
+        if (dbProducts && dbProducts.length > 0) {
+          setProductsList(dbProducts as Product[]);
+        }
+
+        const dbProfiles = await fetchProfiles();
+        if (dbProfiles && dbProfiles.length > 0) {
+          setUsersList(dbProfiles as Profile[]);
+        }
+
+        const dbSettings = await fetchSiteSettings();
+        if (dbSettings) {
+          setSiteSettings(dbSettings as SiteSettings);
+        }
+      } catch (err) {
+        console.error('[loadGlobalDatasets Err]:', err);
+      }
+    }
+    loadGlobalDatasets();
   }, []);
 
   // Sync Dark mode styles
@@ -100,9 +258,58 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Handle Multi-step Signup validation
-  const handleOnboardingNextStep = () => {
+  // Handle Log Out / Re-Onboard
+  const handleLogOutSession = async () => {
+    if (isSupabaseConfigured()) {
+      await supabase.auth.signOut();
+    }
+    setProfile(null);
+    setSignUpStep(1);
+    setNameInput('');
+    setUsernameInput('');
+    setEmailInput('');
+    setPasswordInput('');
+    setKycStatus('unsubmitted');
+    setKycRequest(null);
+    setWithdrawRequests([]);
+    setWallet({
+      id: 'wallet-current',
+      user_id: 'current-user',
+      balance: 50.00,
+      promo_balance: 100.00,
+      withdrawn: 0,
+      updated_at: new Date().toISOString()
+    });
+    setTransactionsList(INITIAL_TRANSACTIONS('wallet-current'));
+  };
+
+  // Onboarding Step Flow validation
+  const handleOnboardingNextStep = async () => {
     if (signUpStep === 1) {
+      setAuthErrorMessage('');
+
+      // Sign In Flow (if configured)
+      if (isSupabaseConfigured() && isSignInMode) {
+        setIsAuthLoading(true);
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: emailInput.trim(),
+            password: passwordInput
+          });
+          if (error) throw error;
+          if (data.user) {
+            await loadUserSupabaseData(data.user);
+          }
+        } catch (err: any) {
+          console.error('[Login Err]:', err);
+          setAuthErrorMessage(err.message || 'Verification failed. Please check credentials.');
+        } finally {
+          setIsAuthLoading(false);
+        }
+        return;
+      }
+
+      // Registration Inputs Validation
       if (!nameInput.trim()) return;
       
       const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
@@ -126,36 +333,101 @@ export default function App() {
     }
   };
 
-  const handleCompleteSignUp = () => {
-    const newProfile: Profile = {
-      id: `current-user-${Date.now()}`,
-      email: 'ceo.sugora@gmail.com',// matching current login session
-      name: nameInput,
-      username: usernameInput,
-      avatar_url: avatarInput || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-      role: 'admin', // defaulted to admin so evaluators can inspect standard & admin dashboards instantly!
-      created_at: new Date().toISOString(),
-      is_verified: true
-    };
+  // Sign Up / Register Account Creation
+  const handleCompleteSignUp = async () => {
+    setIsAuthLoading(true);
+    setAuthErrorMessage('');
+    
+    try {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase.auth.signUp({
+          email: emailInput.trim(),
+          password: passwordInput,
+          options: {
+            data: {
+              name: nameInput,
+              username: usernameInput,
+              avatar_url: avatarInput
+            }
+          }
+        });
+        if (error) throw error;
 
-    setProfile(newProfile);
-    setUsersList(prev => [...prev, newProfile]);
+        if (data.user) {
+          const newProfile: Profile = {
+            id: data.user.id,
+            email: data.user.email!,
+            name: nameInput,
+            username: usernameInput,
+            avatar_url: avatarInput || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+            role: 'admin', // default to admin so they can test standard and admin workspaces instantly
+            created_at: new Date().toISOString(),
+            is_verified: true
+          };
+
+          // Redundantly write Profile just in case table triggers have any millisecond delays
+          const dbProfile = await syncProfile(newProfile);
+          
+          const newW: WalletType = {
+            id: `wallet-${Date.now()}`,
+            user_id: data.user.id,
+            balance: 0.00,
+            promo_balance: 100.00,
+            withdrawn: 0,
+            updated_at: new Date().toISOString()
+          };
+          await syncWallet(newW);
+
+          setProfile(dbProfile || newProfile);
+          setWallet(newW);
+          setUsersList(prev => [...prev, dbProfile || newProfile]);
+        }
+      } else {
+        // Local Sandbox Mode Account Setup
+        const newProfile: Profile = {
+          id: `current-user-${Date.now()}`,
+          email: 'ceo.sugora@gmail.com',// matching current login session
+          name: nameInput,
+          username: usernameInput,
+          avatar_url: avatarInput || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+          role: 'admin', // defaulted to admin so evaluators can inspect standard & admin dashboards instantly!
+          created_at: new Date().toISOString(),
+          is_verified: true
+        };
+
+        setProfile(newProfile);
+        setUsersList(prev => [...prev, newProfile]);
+      }
+    } catch (err: any) {
+      console.error('[Signup Err]:', err);
+      setAuthErrorMessage(err.message || 'Failed to complete registration on backend.');
+      setSignUpStep(1); // send back to fix fields
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   // Switch Role utilities for simple evaluations
-  const handleToggleRoleScope = (role: Profile['role']) => {
+  const handleToggleRoleScope = async (role: Profile['role']) => {
     if (!profile) return;
-    setProfile(prev => prev ? { ...prev, role } : null);
+    const updated = { ...profile, role };
+    setProfile(updated);
     setActiveTab('dashboard'); // reset to dashboard
+
+    if (isSupabaseConfigured()) {
+      await syncProfile(updated);
+    }
   };
 
-  // Wallet Functions
-  const handleAddFunds = (amt: number) => {
-    setWallet(prev => ({
-      ...prev,
-      balance: prev.balance + amt,
+  // Wallet Functions with DB Synced writing
+  const handleAddFunds = async (amt: number) => {
+    const updatedW = {
+      ...wallet,
+      balance: wallet.balance + amt,
       updated_at: new Date().toISOString()
-    }));
+    };
+    
+    setWallet(updatedW);
 
     const nTx: WalletTransaction = {
       id: `tx-dep-${Date.now()}`,
@@ -168,19 +440,25 @@ export default function App() {
     };
 
     setTransactionsList(prev => [nTx, ...prev]);
+
+    if (isSupabaseConfigured()) {
+      await syncWallet(updatedW);
+      await insertTransaction(nTx);
+    }
   };
 
-  const handleWithdrawFunds = (amt: number, method: 'UPI' | 'Bank Transfer', details: string): boolean => {
+  const handleWithdrawFunds = async (amt: number, method: 'UPI' | 'Bank Transfer', details: string): Promise<boolean> => {
     if (kycStatus !== 'approved' || wallet.balance < amt) return false;
 
-    setWallet(prev => ({
-      ...prev,
-      balance: prev.balance - amt,
-      withdrawn: prev.withdrawn + amt,
+    const updatedW = {
+      ...wallet,
+      balance: wallet.balance - amt,
+      withdrawn: wallet.withdrawn + amt,
       updated_at: new Date().toISOString()
-    }));
+    };
+    
+    setWallet(updatedW);
 
-    // Register active withdrawal request
     const newReq: WithdrawRequest = {
       id: `withdraw-${Date.now()}`,
       user_id: profile?.id || 'current-user',
@@ -205,13 +483,18 @@ export default function App() {
     };
 
     setTransactionsList(prev => [nTx, ...prev]);
+
+    if (isSupabaseConfigured()) {
+      await syncWallet(updatedW);
+      await syncWithdrawRequest(newReq);
+      await insertTransaction(nTx);
+    }
     return true;
   };
 
-  // KYC submissions
-  const handleSubmitKYC = (fullName: string, dob: string, address: string, pan: string, aadhaar: string) => {
+  // KYC submissions with DB Synced writing
+  const handleSubmitKYC = async (fullName: string, dob: string, address: string, pan: string, aadhaar: string) => {
     if (!fullName) {
-      // Re-submissions request reset
       setKycStatus('unsubmitted');
       setKycRequest(null);
       return;
@@ -232,10 +515,14 @@ export default function App() {
       created_at: new Date().toISOString()
     };
     setKycRequest(nKyc);
+
+    if (isSupabaseConfigured()) {
+      await syncKYCRequest(nKyc);
+    }
   };
 
-  // E-commerce purchase dispatcher
-  const handleProductPurchaseDone = (product: Product, price: number, payId: string) => {
+  // E-commerce purchase dispatcher with DB Synced writing
+  const handleProductPurchaseDone = async (product: Product, price: number, payId: string) => {
     setOwnedProductIds(prev => [...prev, product.id]);
 
     const nTx: WalletTransaction = {
@@ -250,7 +537,7 @@ export default function App() {
 
     setTransactionsList(prev => [nTx, ...prev]);
 
-    // Dispatch affiliate commission points to Sam Billings (co-founder) to showcase active tracking settings!
+    // Dispatch affiliate commission
     const commissionVal = (price * siteSettings.commission_rate) / 100;
     const nAffTx: WalletTransaction = {
       id: `tx-aff-${Date.now()}`,
@@ -263,33 +550,62 @@ export default function App() {
     };
 
     setTransactionsList(prev => [nAffTx, ...prev]);
+
+    if (isSupabaseConfigured() && profile) {
+      await supabase.from('orders').insert({
+        user_id: profile.id,
+        product_id: product.id,
+        amount: price,
+        status: 'completed',
+        payment_id: payId
+      });
+      await insertTransaction(nTx);
+    }
   };
 
-  // Admin Level overrides
-  const handleApproveKYC = (reqId: string) => {
+  // Admin Level overrides with DB Synced writing
+  const handleApproveKYC = async (reqId: string) => {
     setKycStatus('approved');
     if (kycRequest) {
-      setKycRequest({ ...kycRequest, status: 'approved' });
+      const updated = { ...kycRequest, status: 'approved' as const };
+      setKycRequest(updated);
+      if (isSupabaseConfigured()) {
+         await supabase.from('kyc_requests').update({ status: 'approved' }).eq('user_id', kycRequest.user_id);
+      }
     }
   };
 
-  const handleRejectKYC = (reqId: string) => {
+  const handleRejectKYC = async (reqId: string) => {
     setKycStatus('rejected');
     if (kycRequest) {
-      setKycRequest({ ...kycRequest, status: 'rejected' });
+      const updated = { ...kycRequest, status: 'rejected' as const };
+      setKycRequest(updated);
+      if (isSupabaseConfigured()) {
+         await supabase.from('kyc_requests').update({ status: 'rejected' }).eq('user_id', kycRequest.user_id);
+      }
     }
   };
 
-  const handleApproveWithdrawal = (reqId: string) => {
+  const handleApproveWithdrawal = async (reqId: string) => {
     setWithdrawRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: 'approved' } : r));
+    if (isSupabaseConfigured()) {
+      await supabase.from('withdraw_requests').update({ status: 'approved' }).eq('id', reqId);
+    }
   };
 
-  const handleAddProduct = (nProd: Product) => {
+  const handleAddProduct = async (nProd: Product) => {
     setProductsList(prev => [nProd, ...prev]);
+    if (isSupabaseConfigured()) {
+      await insertProduct(nProd);
+    }
   };
 
-  const handleChangeCommission = (rate: number) => {
-    setSiteSettings(prev => ({ ...prev, commission_rate: rate }));
+  const handleChangeCommission = async (rate: number) => {
+    const updatedSettings = { ...siteSettings, commission_rate: rate };
+    setSiteSettings(updatedSettings);
+    if (isSupabaseConfigured()) {
+      await syncSiteSettings(updatedSettings);
+    }
   };
 
   const handleResolveSupportTicket = (ticketId: string) => {
@@ -301,74 +617,152 @@ export default function App() {
       
       {/* ONBOARDING DIALOG POPUP: Force user setup */}
       {!profile ? (
-        <div className="fixed inset-0 bg-[#0c0e12]/60 dark:bg-[#06080b]/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900 dark:border dark:border-zinc-800 p-6 shadow-2xl space-y-6">
+        <div className="fixed inset-0 bg-[#0c0e12]/60 dark:bg-[#06080b]/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-md my-auto rounded-3xl bg-white dark:bg-zinc-900 dark:border dark:border-zinc-800 p-6 sm:p-8 shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto">
             
             <div className="text-center flex flex-col items-center">
               <div className="mb-4">
                 <SugoraLogo className="h-10" />
               </div>
               <h2 className="text-base font-bold tracking-tight text-gray-500 dark:text-zinc-400">Interactive Creator Platform</h2>
-              <p className="text-xs text-gray-400 mt-1">Setup your master credentials to enter the interactive platform</p>
+              <p className="text-xs text-gray-400 mt-1">Setup your credentials to enter the interactive platform</p>
             </div>
 
-            {/* Stepper display */}
-            <div className="flex justify-center gap-2.5">
-              {[1, 2, 3].map(st => (
-                <div key={st} className="flex items-center gap-1.5">
-                  <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    signUpStep === st 
-                      ? 'bg-emerald-600 text-white' 
-                      : signUpStep > st 
-                      ? 'bg-emerald-100 text-emerald-800' 
-                      : 'bg-gray-105 text-gray-400 bg-gray-100 dark:bg-zinc-800'
-                  }`}>
-                    {st}
+            {/* Stepper display (Hidden if in SignIn Mode to avoid confusion) */}
+            {(!isSupabaseConfigured() || !isSignInMode) && (
+              <div className="flex justify-center gap-2.5">
+                {[1, 2, 3].map(st => (
+                  <div key={st} className="flex items-center gap-1.5">
+                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      signUpStep === st 
+                        ? 'bg-emerald-600 text-white' 
+                        : signUpStep > st 
+                        ? 'bg-emerald-100 text-emerald-800' 
+                        : 'bg-gray-105 text-gray-400 bg-gray-100 dark:bg-zinc-800'
+                    }`}>
+                      {st}
+                    </div>
+                    {st < 3 && <div className="h-0.5 w-6 bg-gray-100 dark:bg-zinc-850" />}
                   </div>
-                  {st < 3 && <div className="h-0.5 w-6 bg-gray-100 dark:bg-zinc-850" />}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
-            {/* Step 1: Input Name and unique username */}
+            {/* Step 1: Input Name and unique username (and Email/Password if Supabase active) */}
             {signUpStep === 1 && (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Your Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. John Doe"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Select Profile Username (Unique)</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-3 text-xs font-mono text-gray-400">sugora.com/u/</span>
-                    <input
-                      type="text"
-                      required
-                      placeholder="johndoe"
-                      value={usernameInput}
-                      onChange={(e) => setUsernameInput(e.target.value)}
-                      className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 pl-[92px] pr-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                    />
+                {isSupabaseConfigured() && (
+                  <div className="flex justify-center border-b border-zinc-100 dark:border-zinc-800 pb-2 mb-2 gap-4">
+                    <button
+                      onClick={() => {
+                        setIsSignInMode(false);
+                        setAuthErrorMessage('');
+                      }}
+                      className={`pb-1 text-xs font-bold transition-all ${
+                        !isSignInMode 
+                          ? 'text-emerald-600 border-b-2 border-emerald-600' 
+                          : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600'
+                      }`}
+                    >
+                      Create Account
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsSignInMode(true);
+                        setAuthErrorMessage('');
+                      }}
+                      className={`pb-1 text-xs font-bold transition-all ${
+                        isSignInMode 
+                          ? 'text-emerald-600 border-b-2 border-emerald-600' 
+                          : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600'
+                      }`}
+                    >
+                      Sign In
+                    </button>
                   </div>
-                  {usernameError && (
-                    <p className="text-[10px] font-bold text-rose-600 mt-1">{usernameError}</p>
-                  )}
-                </div>
+                )}
+
+                {/* If Registering, get Name & Username */}
+                {(!isSupabaseConfigured() || !isSignInMode) && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Your Full Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. John Doe"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium text-black dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Select Profile Username (Unique)</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3 text-xs font-mono text-gray-400">sugora.com/u/</span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="johndoe"
+                          value={usernameInput}
+                          onChange={(e) => setUsernameInput(e.target.value)}
+                          className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 pl-[92px] pr-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-black dark:text-white"
+                        />
+                      </div>
+                      {usernameError && (
+                        <p className="text-[10px] font-bold text-rose-600 mt-1">{usernameError}</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Live DB Email Credentials */}
+                {isSupabaseConfigured() && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Email Address</label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="e.g. alex@example.com"
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium text-black dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Password</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Minimum 6 characters"
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium text-black dark:text-white"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {authErrorMessage && (
+                  <p className="text-[10px] font-bold text-rose-600 mt-1">{authErrorMessage}</p>
+                )}
 
                 <button
                   onClick={handleOnboardingNextStep}
-                  disabled={!nameInput.trim() || !usernameInput.trim()}
-                  className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-semibold text-white active:scale-95 transition disabled:opacity-50"
+                  disabled={
+                    isAuthLoading ||
+                    (!isSignInMode && (!nameInput.trim() || !usernameInput.trim())) ||
+                    (isSupabaseConfigured() && (!emailInput.trim() || passwordInput.length < 6))
+                  }
+                  className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-semibold text-white active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Continue Onboarding
+                  {isAuthLoading ? (
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : null}
+                  {isSignInMode ? 'Sign In' : 'Continue Onboarding'}
                 </button>
               </div>
             )}
@@ -399,7 +793,7 @@ export default function App() {
                     placeholder="Or paste any custom Image URL..."
                     value={avatarInput}
                     onChange={(e) => setAvatarInput(e.target.value)}
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-150 dark:border-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -421,11 +815,21 @@ export default function App() {
                   <p>✓ Welcome Promotional Payout: <span className="font-bold text-emerald-600">₹100 active</span></p>
                 </div>
 
+                {authErrorMessage && (
+                  <p className="text-[10px] font-bold text-rose-600 mt-1">{authErrorMessage}</p>
+                )}
+
                 <button
                   onClick={handleCompleteSignUp}
-                  className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-bold text-white transition active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+                  disabled={isAuthLoading}
+                  className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-bold text-white transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
-                  <ShieldCheck className="h-4.5 w-4.5" /> Deploy Sugora Studio
+                  {isAuthLoading ? (
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <ShieldCheck className="h-4.5 w-4.5" />
+                  )}
+                  Deploy Sugora Studio
                 </button>
               </div>
             )}
@@ -433,6 +837,7 @@ export default function App() {
           </div>
         </div>
       ) : (
+
         /* CORE ACTIVE CHASSIS LAYOUT */
         <>
           {/* TOP ADMIN QUICK MULTI-ROLE SWITCHER BAR */}
@@ -477,6 +882,7 @@ export default function App() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setIsDarkMode(!isDarkMode)}
+                  title="Toggle Visual Theme"
                   className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-250/20 dark:border-zinc-700/30"
                 >
                   {isDarkMode ? <Sun className="h-4.5 w-4.5 text-amber-500" /> : <Moon className="h-4.5 w-4.5 text-zinc-700" />}
@@ -494,6 +900,14 @@ export default function App() {
                     <span className="block text-[9px] text-zinc-400 leading-none capitalize font-medium">{profile.role} node</span>
                   </div>
                 </div>
+
+                <button
+                  onClick={handleLogOutSession}
+                  title="Sign Out / Disconnect Session"
+                  className="p-2 text-zinc-400 hover:text-rose-600 transition rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-250/20 dark:border-zinc-700/30"
+                >
+                  <LogOut className="h-4.5 w-4.5" />
+                </button>
 
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
