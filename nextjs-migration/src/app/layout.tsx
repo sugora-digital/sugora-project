@@ -18,14 +18,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
         />
       </head>
-      <body className="min-h-screen bg-[#06080a] text-zinc-100 font-sans antialiased">
+      <body className="min-h-screen font-sans antialiased">
         {children}
       </body>
     </html>
