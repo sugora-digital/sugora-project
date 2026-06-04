@@ -62,7 +62,7 @@ export default function Home() {
   });
 
   const [transactionsList, setTransactionsList] = useState<WalletTransaction[]>([]);
-  const [kycStatus, setKycStatus] = useState<KYCRequest['status']>('unsubmitted');
+  const [kycStatus, setKycStatus] = useState<KYCRequest['status'] | 'unsubmitted'>('unsubmitted');
   const [withdrawRequests, setWithdrawRequests] = useState<WithdrawRequest[]>([]);
   const [kycRequest, setKycRequest] = useState<KYCRequest | null>(null);
 
