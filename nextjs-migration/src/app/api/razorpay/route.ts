@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '../../../lib/supabase';
 
 /**
  * REST API handler for Razorpay order processing & purchase execution
