@@ -190,8 +190,10 @@ export interface AIConversation {
 
 export interface AIMessage {
   id: string;
+  conversation_id?: string;
   role: 'user' | 'model';
   content: string;
+  created_at?: string;
 }
 
 export interface SiteSettings {
