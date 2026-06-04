@@ -532,8 +532,18 @@ export default function Home() {
       
       {!profile ? (
         <div id="auth-onboarding-screen" className="fixed inset-0 bg-gray-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900/95 dark:border dark:border-zinc-800 p-6 shadow-2xl space-y-6">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900/95 dark:border dark:border-zinc-800 p-6 shadow-2xl space-y-6 relative">
             
+            {/* Absolute Theme Switcher for Login screen */}
+            <button
+              type="button"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-gray-100 dark:bg-zinc-800 text-gray-550 dark:text-zinc-400 hover:text-emerald-500 dark:hover:text-amber-400 transition-all border border-gray-200/50 dark:border-zinc-700/50 cursor-pointer hover:scale-105 active:scale-95"
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {isDarkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-750 dark:text-zinc-300" />}
+            </button>
+
             {/* Header / Brand identity */}
             <div className="text-center flex flex-col items-center">
               <div className="mb-2">
