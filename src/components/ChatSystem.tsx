@@ -9,6 +9,7 @@ import { Profile, ChatRoom, ChatMessage } from '../types';
 
 interface ChatSystemProps {
   currentUser: Profile;
+  usersList?: Profile[];
 }
 
 const INITIAL_ROOMS: ChatRoom[] = [
@@ -87,7 +88,7 @@ const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {
 
 const POPULAR_EMOJIS = ['👍', '❤️', '😂', '🔥', '👏', '🎉', '💡', '🚀', '🙌', '💯'];
 
-export default function ChatSystem({ currentUser }: ChatSystemProps) {
+export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemProps) {
   const [rooms, setRooms] = useState<ChatRoom[]>(INITIAL_ROOMS);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES);
   const [selectedRoomId, setSelectedRoomId] = useState<string>('room-support');
@@ -97,6 +98,64 @@ export default function ChatSystem({ currentUser }: ChatSystemProps) {
   const [showUploadSimModal, setShowUploadSimModal] = useState<'image' | 'file' | null>(null);
   const [simUploadUrl, setSimUploadUrl] = useState<string>('');
   const [isMobileListOpen, setIsMobileListOpen] = useState<boolean>(true);
+
+  // Active searching for users that are NOT currently in the sidebar conversation rooms
+  const searchedUsersToStart = searchQuery.trim() ? (usersList || []).filter(u => {
+    // Suppress current user from discovery list
+    if (u.id === currentUser.id) return false;
+
+    // Suppress users whom we already have active conversations with inside the sidebar
+    const hasAlreadyOpenedRoom = rooms.some(r => r.participant_id === u.id);
+    if (hasAlreadyOpenedRoom) return false;
+
+    const queryMatcher = searchQuery.toLowerCase();
+    return (
+      (u.username || '').toLowerCase().includes(queryMatcher) ||
+      (u.name || '').toLowerCase().includes(queryMatcher)
+    );
+  }) : [];
+
+  const handleStartNewChat = (user: Profile) => {
+    const existingRoom = rooms.find(r => r.participant_id === user.id);
+    if (existingRoom) {
+      handleSelectRoom(existingRoom.id);
+      return;
+    }
+
+    const newRoomId = `room-user-${user.id}`;
+    const newRoom: ChatRoom = {
+      id: newRoomId,
+      name: user.name,
+      type: 'one-to-one',
+      created_at: new Date().toISOString(),
+      last_message: `Let's discuss our partnership.`,
+      last_message_time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+      unread_count: 0,
+      participant_id: user.id,
+      participant_name: user.name,
+      participant_username: user.username,
+      participant_avatar: user.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+      is_online: true
+    };
+
+    setRooms(prev => [newRoom, ...prev]);
+    setMessages(prev => ({
+      ...prev,
+      [newRoomId]: [
+        {
+          id: `welcome-${Date.now()}`,
+          room_id: newRoomId,
+          sender_id: user.id,
+          sender_name: user.name,
+          text: `Hey there! I am ${user.name} (@${user.username}). Let's chat live here on Sugora Studio!`,
+          created_at: new Date().toISOString(),
+          is_read: true
+        }
+      ]
+    }));
+    handleSelectRoom(newRoomId);
+    setSearchQuery('');
+  };
 
   const activeRoom = rooms.find(r => r.id === selectedRoomId);
   const activeRoomMessages = messages[selectedRoomId] || [];
@@ -222,7 +281,7 @@ export default function ChatSystem({ currentUser }: ChatSystemProps) {
   const filteredRooms = rooms.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()) || r.participant_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div id="chat-system-widget" className="relative flex h-[620px] rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-zinc-800/80 dark:bg-zinc-950">
+    <div id="chat-system-widget" className="relative flex h-[74vh] min-h-[480px] md:h-[640px] rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-zinc-800/80 dark:bg-zinc-950">
       
       {/* Search & Rooms list (Full width on search list state, sidebar on desktop) */}
       <div className={`w-full md:w-80 shrink-0 border-r border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-900/30 flex flex-col ${
@@ -236,16 +295,46 @@ export default function ChatSystem({ currentUser }: ChatSystemProps) {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search conversations..."
+              placeholder="Search conversations or username..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl bg-white dark:bg-zinc-900 py-2 pl-9 pr-4 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full rounded-xl bg-white dark:bg-zinc-900 py-2 pl-9 pr-4 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-white"
             />
           </div>
         </div>
 
         {/* Channels/Inbox Scroll Column */}
         <div className="flex-1 overflow-y-auto divide-y divide-gray-50/40 dark:divide-zinc-800/10">
+          
+          {/* Real-time search users lookup rendering */}
+          {searchedUsersToStart.length > 0 && (
+            <div className="p-2 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 border-b border-gray-100 dark:border-zinc-850">
+              <span className="block text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-widest p-2 font-mono">
+                🔍 Discover New Users ({searchedUsersToStart.length})
+              </span>
+              <div className="space-y-1">
+                {searchedUsersToStart.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => handleStartNewChat(u)}
+                    className="w-full p-2 rounded-xl bg-white dark:bg-zinc-900 flex items-center gap-2.5 text-left border border-zinc-100 dark:border-zinc-800/65 hover:border-emerald-500 dark:hover:border-emerald-500/80 transition duration-150 cursor-pointer shadow-sm"
+                  >
+                    <img
+                      referrerPolicy="no-referrer"
+                      src={u.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=80'}
+                      alt={u.name}
+                      className="h-8 w-8 rounded-full object-cover shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate leading-tight">{u.name}</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">@{u.username} • <span className="opacity-75">{u.role}</span></span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {filteredRooms.map((r) => {
             const isSelected = r.id === selectedRoomId;
             return (

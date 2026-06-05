@@ -26,7 +26,7 @@ import {
   Share2,
   Lock
 } from 'lucide-react';
-import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings } from './types';
+import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, UserRole } from './types';
 import { INITIAL_PRODUCTS, INITIAL_APPS, INITIAL_MOCK_USERS, INITIAL_MOCK_TICKETS, INITIAL_TRANSACTIONS } from './mockData';
 
 // Component imports
@@ -72,6 +72,7 @@ export default function App() {
   const [usernameInput, setUsernameInput] = useState<string>('');
   const [avatarInput, setAvatarInput] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150');
   const [usernameError, setUsernameError] = useState<string>('');
+  const [roleInput, setRoleInput] = useState<UserRole>('user');
 
   // Credentials for Supabase Auth Live Sync
   const [emailInput, setEmailInput] = useState<string>('');
@@ -258,6 +259,19 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Set default panel / activeTab on user profile load based on user role
+  useEffect(() => {
+    if (profile) {
+      if (profile.role === 'admin') {
+        setActiveTab('admin');
+      } else if (profile.role === 'support') {
+        setActiveTab('support');
+      } else {
+        setActiveTab('dashboard');
+      }
+    }
+  }, [profile]);
+
   // Handle Log Out / Re-Onboard
   const handleLogOutSession = async () => {
     if (isSupabaseConfigured()) {
@@ -360,7 +374,7 @@ export default function App() {
             name: nameInput,
             username: usernameInput,
             avatar_url: avatarInput || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-            role: 'admin', // default to admin so they can test standard and admin workspaces instantly
+            role: roleInput, // Dynamic role based on dropdown selection
             created_at: new Date().toISOString(),
             is_verified: true
           };
@@ -390,7 +404,7 @@ export default function App() {
           name: nameInput,
           username: usernameInput,
           avatar_url: avatarInput || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-          role: 'admin', // defaulted to admin so evaluators can inspect standard & admin dashboards instantly!
+          role: roleInput, // Dynamic role based on dropdown selection
           created_at: new Date().toISOString(),
           is_verified: true
         };
@@ -402,6 +416,104 @@ export default function App() {
       console.error('[Signup Err]:', err);
       setAuthErrorMessage(err.message || 'Failed to complete registration on backend.');
       setSignUpStep(1); // send back to fix fields
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  // Quick Sign In for evaluators to easily check User/Admin/Support panels
+  const handleQuickSignIn = async (role: UserRole) => {
+    setIsAuthLoading(true);
+    setAuthErrorMessage('');
+    
+    const mockEmail = `${role}@sugora.com`;
+    setEmailInput(mockEmail);
+    setPasswordInput('password123');
+
+    try {
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: mockEmail,
+            password: 'password123'
+          });
+          if (error) {
+            // Register this user on the fly if not exists
+            const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+              email: mockEmail,
+              password: 'password123',
+              options: {
+                data: {
+                  name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+                  username: `${role}_tester`,
+                  avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+                }
+              }
+            });
+            if (signUpErr) throw signUpErr;
+            if (signUpData.user) {
+              const newProfile: Profile = {
+                id: signUpData.user.id,
+                email: mockEmail,
+                name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+                username: `${role}_tester`,
+                role: role,
+                avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+                created_at: new Date().toISOString(),
+                is_verified: true
+              };
+              await syncProfile(newProfile);
+              setProfile(newProfile);
+            }
+          } else if (data.user) {
+            const { data: dbProfile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+            if (dbProfile) {
+              const updatedProfile = { ...(dbProfile as Profile), role };
+              await syncProfile(updatedProfile);
+              setProfile(updatedProfile);
+            } else {
+              const newProfile: Profile = {
+                id: data.user.id,
+                email: mockEmail,
+                name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+                username: `${role}_tester`,
+                role: role,
+                avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+                created_at: new Date().toISOString(),
+                is_verified: true
+              };
+              await syncProfile(newProfile);
+              setProfile(newProfile);
+            }
+          }
+        } catch (err: any) {
+          console.error('[Quick Link Active DB Fallback]:', err);
+          setProfile({
+            id: `san-${role}-${Date.now()}`,
+            email: mockEmail,
+            name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+            username: `${role}_tester`,
+            role: role,
+            avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+            created_at: new Date().toISOString(),
+            is_verified: true
+          });
+        }
+      } else {
+        const fallbackId = `demo-${role}-${Date.now()}`;
+        setProfile({
+          id: fallbackId,
+          email: mockEmail,
+          name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+          username: `${role}_tester`,
+          role: role,
+          avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+          created_at: new Date().toISOString(),
+          is_verified: true
+        });
+      }
+    } catch (err: any) {
+      setAuthErrorMessage(err.message || 'Quick login failed.');
     } finally {
       setIsAuthLoading(false);
     }
@@ -714,6 +826,36 @@ export default function App() {
                         <p className="text-[10px] font-bold text-rose-600 mt-1">{usernameError}</p>
                       )}
                     </div>
+
+                    {/* Choose Role / Panel Selector during signup */}
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Select Account Panel / Role</label>
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-150 dark:bg-[#080a0c] border border-gray-100 dark:border-zinc-800 rounded-xl">
+                        {[
+                          { id: 'user', label: 'User Hub' },
+                          { id: 'support', label: 'Support Desk' },
+                          { id: 'admin', label: 'Admin Panel' }
+                        ].map(roleOpt => (
+                          <button
+                            key={roleOpt.id}
+                            type="button"
+                            onClick={() => setRoleInput(roleOpt.id as UserRole)}
+                            className={`py-1.5 rounded-lg text-[10px] font-bold text-center transition cursor-pointer ${
+                              roleInput === roleOpt.id
+                                ? 'bg-emerald-600 text-white shadow-sm'
+                                : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                            }`}
+                          >
+                            {roleOpt.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-gray-400 dark:text-zinc-500 mt-1 leading-normal">
+                        {roleInput === 'admin' && '👑 Owner dashboard with analytics control'}
+                        {roleInput === 'support' && '🎫 Customer complaints & resolution terminal'}
+                        {roleInput === 'user' && '🌲 Main Creator dashboard & bio templates'}
+                      </p>
+                    </div>
                   </>
                 )}
 
@@ -744,6 +886,39 @@ export default function App() {
                       />
                     </div>
                   </>
+                )}
+
+                {/* Preset sign-in buttons */}
+                {isSignInMode && (
+                  <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                    <label className="block text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold mb-2 font-mono">⚡ Quick Demo Sign In Panels</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSignIn('user')}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/35 border border-emerald-100 dark:border-emerald-900/20 text-center transition active:scale-95 cursor-pointer"
+                      >
+                        <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400">User Panel</span>
+                        <span className="text-[8px] text-emerald-600 opacity-85 font-mono">/dashboard</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSignIn('support')}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/20 dark:hover:bg-teal-950/35 border border-teal-100 dark:border-teal-900/20 text-center transition active:scale-95 cursor-pointer"
+                      >
+                        <span className="text-[10px] font-extrabold text-teal-700 dark:text-teal-400">Support Panel</span>
+                        <span className="text-[8px] text-teal-600 opacity-85 font-mono">/support-dash</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSignIn('admin')}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/35 border border-rose-100 dark:border-rose-900/20 text-center transition active:scale-95 cursor-pointer"
+                      >
+                        <span className="text-[10px] font-extrabold text-rose-700 dark:text-rose-400">Admin Panel</span>
+                        <span className="text-[8px] text-rose-600 opacity-85 font-mono">/analytics</span>
+                      </button>
+                    </div>
+                  </div>
                 )}
 
                 {authErrorMessage && (
@@ -1001,7 +1176,7 @@ export default function App() {
               </nav>
 
               {/* CORE RENDERING VIEWSPACE PORTAL */}
-              <main id="main-content-panels" className="flex-grow p-6 md:p-8 overflow-y-auto max-w-full">
+              <main id="main-content-panels" className="flex-grow p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto max-w-full">
                 <div className="max-w-5xl mx-auto h-full">
                   {activeTab === 'dashboard' && (
                     <Dashboard
@@ -1024,6 +1199,7 @@ export default function App() {
                   {activeTab === 'chat' && (
                     <ChatSystem
                       currentUser={profile}
+                      usersList={usersList}
                     />
                   )}
 
@@ -1087,6 +1263,43 @@ export default function App() {
             </div>
           </div>
         </>
+      )}
+
+      {/* PREMIUM BOTTOM MOBILE NAVIGATION */}
+      {profile && (
+        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 py-1.5 px-1 flex justify-around items-center z-45 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'tree', label: 'Sugora Tree', icon: Share2 },
+            { id: 'chat', label: 'Chat', icon: MessageSquare },
+            { id: 'wallet', label: 'Wallet', icon: Wallet },
+            { id: 'more', label: 'Menu', icon: Menu }
+          ].map((tab) => {
+            const IconComp = tab.icon;
+            const isSelected = activeTab === tab.id || (tab.id === 'more' && mobileMenuOpen);
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (tab.id === 'more') {
+                    setMobileMenuOpen(!mobileMenuOpen);
+                  } else {
+                    setActiveTab(tab.id);
+                    setMobileMenuOpen(false);
+                  }
+                }}
+                className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all duration-150 cursor-pointer ${
+                  isSelected 
+                    ? 'text-emerald-600 dark:text-emerald-400 font-extrabold scale-102' 
+                    : 'text-zinc-500 dark:text-zinc-400'
+                }`}
+              >
+                <IconComp className={`h-5 w-5 ${isSelected ? 'stroke-[2.5px]' : 'stroke-[1.8px]'}`} />
+                <span className="text-[9px] tracking-tight">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
 
       {/* Embedded universal tiny footer */}
