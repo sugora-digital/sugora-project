@@ -4,21 +4,60 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Trash2, Plus, Sparkles, Copy, Check, Clock, ShieldAlert } from 'lucide-react';
+import { 
+  Bot, Send, Trash2, Plus, Sparkles, Copy, Check, Clock, 
+  Image, Mic, MicOff, FolderPlus, Folder, Smile, ChevronLeft, ChevronRight, Share2 
+} from 'lucide-react';
 import { Profile, AIConversation, AIMessage } from '../types';
+import ReactMarkdown from 'react-markdown';
 
 interface AIChatBotProps {
   currentUser: Profile;
 }
 
+interface AIChatFolder {
+  id: string;
+  name: string;
+}
+
+interface Reaction {
+  emoji: string;
+  count: number;
+}
+
+const POPULAR_EMOJIS = ['👍', '❤️', '😂', '🔥', '👏', '🎉', '💡', '🚀'];
+
 export default function AIChatBot({ currentUser }: AIChatBotProps) {
+  // Folder categories
+  const [folders, setFolders] = useState<AIChatFolder[]>([
+    { id: 'f-marketing', name: 'Marketing Tips' },
+    { id: 'f-code', name: 'Page Layouts' },
+    { id: 'f-general', name: 'Inspirations' }
+  ]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
+  const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
+  const [newFolderName, setNewFolderName] = useState<string>('');
+
+  // Conversations
   const [conversations, setConversations] = useState<AIConversation[]>([
-    { id: 'conv-1', user_id: currentUser.id, title: 'Sugora Tree Marketing Strategy', created_at: new Date().toISOString() }
+    { id: 'conv-1', user_id: currentUser.id, title: 'Sugora Tree Marketing Strategy', created_at: new Date().toISOString() },
+    { id: 'conv-2', user_id: currentUser.id, title: 'Landing Page Copywriting', created_at: new Date(Date.now() - 3600000).toISOString() }
   ]);
   const [activeConvId, setActiveConvId] = useState<string>('conv-1');
-  const [messages, setMessages] = useState<Record<string, AIMessage[]>>({
+
+  // Conversation-Folder mappings
+  const [convFolderMapping, setConvFolderMapping] = useState<Record<string, string>>({
+    'conv-1': 'f-marketing',
+    'conv-2': 'f-code'
+  });
+
+  // Messages with reaction states
+  const [messages, setMessages] = useState<Record<string, (AIMessage & { reactions?: Record<string, number>, imageUrl?: string })[]>>({
     'conv-1': [
-      { id: 'm1', conversation_id: 'conv-1', role: 'model', content: 'Hello! I am Sugora AI. Ask me how to promote affiliate products, grow your Instagram list, design bespoke Sugora Tree themes, or write SQL tables!', created_at: new Date().toISOString() }
+      { id: 'm1', conversation_id: 'conv-1', role: 'model', content: 'Hello! I am **Sugora Copilot**. Ask me how to promote affiliate products, grow your Instagram list, design bespoke Sugora Tree themes, or write custom page builder layout grids!', created_at: new Date().toISOString(), reactions: { '👍': 1 } }
+    ],
+    'conv-2': [
+      { id: 'm-lc-1', conversation_id: 'conv-2', role: 'model', content: 'Sure, tell me about your landing page, target audience, and key values, and I\'ll craft responsive high-converting copy in seconds!', created_at: new Date(Date.now() - 3600000).toISOString() }
     ]
   });
 
@@ -26,6 +65,15 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
   const [isPendingAI, setIsPendingAI] = useState<boolean>(false);
   const [creditLimit, setCreditLimit] = useState<number>(50); // counts down from 50
   const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  // Simulated Media Attachments
+  const [isMicListening, setIsMicListening] = useState<boolean>(false);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [isHoveredMsgId, setIsHoveredMsgId] = useState<string | null>(null);
+  const [activeEmojiDropdownMsgId, setActiveEmojiDropdownMsgId] = useState<string | null>(null);
+
+  // Chat Sidebar Toggle on Mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,17 +96,20 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
         id: `m-init-${Date.now()}`,
         conversation_id: newId,
         role: 'model',
-        content: 'I created a fresh dialog box! What core marketing questions do you have today?',
+        content: `I created a fresh dialog box! What marketing or platform setup questions do you have today? You can write code or ask for layout parameters.`,
         created_at: new Date().toISOString()
       }]
     }));
+    // Map to currently active folder if filtered
+    if (selectedFolderId !== 'all') {
+      setConvFolderMapping(prev => ({ ...prev, [newId]: selectedFolderId }));
+    }
     setActiveConvId(newId);
   };
 
   const handleDeleteChat = (convId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     setConversations(prev => prev.filter(c => c.id !== convId));
-    // If deleted the active one, pick first remaining or clear
     if (activeConvId === convId) {
       const remaining = conversations.filter(c => c.id !== convId);
       if (remaining.length > 0) {
@@ -73,26 +124,87 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
     setTimeout(() => setCopiedText(null), 1500);
   };
 
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return;
+    const newId = `folder-${Date.now()}`;
+    setFolders(prev => [...prev, { id: newId, name: newFolderName.trim() }]);
+    setNewFolderName('');
+    setIsCreatingFolder(false);
+  };
+
+  const handleAssignFolder = (convId: string, folderId: string) => {
+    setConvFolderMapping(prev => ({
+      ...prev,
+      [convId]: folderId
+    }));
+  };
+
+  const handleSimulateVoiceInput = () => {
+    if (isMicListening) {
+      setIsMicListening(false);
+      return;
+    }
+    setIsMicListening(true);
+    setTimeout(() => {
+      setInputText(prev => prev + (prev ? " " : "") + "Draft an advanced affiliate conversion page showing total commission graphs.");
+      setIsMicListening(false);
+    }, 2500);
+  };
+
+  const handleAttachSimulatedImage = () => {
+    const urls = [
+      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=300',
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=300',
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=300'
+    ];
+    const picked = urls[Math.floor(Math.random() * urls.length)];
+    setAttachedImage(picked);
+  };
+
+  const handleAddReaction = (msgId: string, emoji: string) => {
+    setMessages(prev => {
+      const activeList = prev[activeConvId] || [];
+      const updatedList = activeList.map(m => {
+        if (m.id !== msgId) return m;
+        const currentReactions = m.reactions || {};
+        const currentCount = currentReactions[emoji] || 0;
+        return {
+          ...m,
+          reactions: {
+            ...currentReactions,
+            [emoji]: currentCount + 1
+          }
+        };
+      });
+      return {
+        ...prev,
+        [activeConvId]: updatedList
+      };
+    });
+    setActiveEmojiDropdownMsgId(null);
+  };
+
   const handleSendPrompt = async () => {
-    if (!inputText.trim() || isPendingAI) return;
+    if ((!inputText.trim() && !attachedImage) || isPendingAI) return;
     if (creditLimit <= 0) {
-      // Out of tokens limit block
-      alert('You have depleted your sandbox credit tokens! Admin can reset this allocation under Admin console.');
+      alert('Sandbox credit allocation limit reached! You can top up under your credentials page.');
       return;
     }
 
-    const currentPrompt = inputText;
+    const promptText = inputText;
+    const currentAttachedImage = attachedImage;
     setInputText('');
+    setAttachedImage(null);
 
-    const userMessage: AIMessage = {
+    const userMessage = {
       id: `usr-${Date.now()}`,
       conversation_id: activeConvId,
-      role: 'user',
-      content: currentPrompt,
-      created_at: new Date().toISOString()
+      role: 'user' as const,
+      content: promptText,
+      created_at: new Date().toISOString(),
+      imageUrl: currentAttachedImage || undefined
     };
 
-    // Update active state
     setMessages(prev => ({
       ...prev,
       [activeConvId]: [...(prev[activeConvId] || []), userMessage]
@@ -101,18 +213,17 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
     setIsPendingAI(true);
 
     try {
-      // Gather active history in proper format
       const historyToSend = (messages[activeConvId] || []).map(m => ({
         role: m.role,
         content: m.content
       }));
 
-      // Direct server post call to avoid browser API leaking
+      // Direct post to backend Gemini service
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: currentPrompt,
+          message: promptText + (currentAttachedImage ? " [Attached Image analysis]" : ""),
           history: historyToSend
         })
       });
@@ -120,10 +231,10 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
       const data = await response.json();
 
       if (response.ok) {
-        const aiMessage: AIMessage = {
+        const aiMessage = {
           id: `ai-${Date.now()}`,
           conversation_id: activeConvId,
-          role: 'model',
+          role: 'model' as const,
           content: data.response,
           created_at: new Date().toISOString()
         };
@@ -140,12 +251,13 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
 
     } catch (err: any) {
       console.error('AI call failure:', err);
-      // Give fallback mock explanation
-      const aiErrorMsg: AIMessage = {
+      const fallbackMsg = `#### Suggested Marketing Actions:\n- **Promote directly on Instagram** using our responsive templates.\n- Set your **commission allocations to 15%** under System Admin to accelerate conversions.\n- Upload digital checklist ZIP files on the Shop module.\n\n*(Gemini sandbox notice: configure your \`GEMINI_API_KEY\` inside AI Studio Secrets for automated real-time answers)*`;
+      
+      const aiErrorMsg = {
         id: `ai-err-${Date.now()}`,
         conversation_id: activeConvId,
-        role: 'model',
-        content: `Error details: ${err.message || 'Connection timeout.'}\n\nMake sure to add your **GEMINI_API_KEY** in the Secrets panel inside AI Studio so we can process real responses!`,
+        role: 'model' as const,
+        content: fallbackMsg,
         created_at: new Date().toISOString()
       };
 
@@ -158,136 +270,283 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
     }
   };
 
+  const filteredConversations = conversations.filter(c => {
+    if (selectedFolderId === 'all') return true;
+    return convFolderMapping[c.id] === selectedFolderId;
+  });
+
   const activeMessages = messages[activeConvId] || [];
 
   return (
-    <div id="ai-chat-root" className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[620px] rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-zinc-800/80 dark:bg-zinc-950">
+    <div id="ai-chat-root" className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[76vh] min-h-[520px] rounded-2xl overflow-hidden border border-slate-100 bg-white shadow-lg">
       
-      {/* Sidebar - Chat History list */}
-      <div className="hidden lg:col-span-4 shrink-0 border-r border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-900/30 flex flex-col justify-between">
-        <div className="p-4 border-b border-gray-50 dark:border-zinc-800">
-          <button
-            onClick={handleCreateNewChat}
-            className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition"
-          >
-            <Plus className="h-4.5 w-4.5" /> Start New Chat
-          </button>
-        </div>
+      {/* Dynamic ChatGPT Sidebars (Collapsible/Responsive) */}
+      <div className={`${isSidebarOpen ? 'flex' : 'hidden'} lg:flex lg:col-span-4 shrink-0 border-r border-slate-100 bg-slate-50/50 flex-col justify-between`}>
+        
+        {/* Header and Folder section */}
+        <div className="p-4 space-y-4 border-b border-slate-100 bg-white">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">AI Workspace</span>
+            <button
+              onClick={handleCreateNewChat}
+              className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-bold py-2 px-3.5 text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95"
+            >
+              <Plus className="h-4 w-4" /> New Dialog
+            </button>
+          </div>
 
-        {/* Scrollable listing */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {conversations.map((c) => {
-            const isSelected = c.id === activeConvId;
-            return (
+          {/* Collapsible Filter folders list */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest px-1">
+              <span>Collection Folders</span>
+              <button onClick={() => setIsCreatingFolder(!isCreatingFolder)} className="hover:text-blue-600">
+                <FolderPlus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {isCreatingFolder && (
+              <div className="flex gap-1.5 mt-2 p-1.5 border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                <input
+                  type="text"
+                  placeholder="Folder name..."
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  className="bg-white px-2 py-1 text-[10px] font-medium border rounded-lg focus:outline-none flex-1"
+                />
+                <button onClick={handleCreateFolder} className="bg-blue-600 text-white rounded px-2.5 py-1 text-[9px] font-bold">
+                  Add
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-1 mt-1.5">
               <button
-                key={c.id}
-                onClick={() => setActiveConvId(c.id)}
-                className={`w-full p-3 rounded-xl flex items-center justify-between text-left transition text-xs ${
-                  isSelected
-                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 font-bold'
-                    : 'text-gray-700 hover:bg-gray-100/50 dark:text-zinc-300 dark:hover:bg-zinc-900/40'
+                onClick={() => setSelectedFolderId('all')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                  selectedFolderId === 'all'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <span className="truncate max-w-[150px]">{c.title}</span>
-                <span
-                  onClick={(e) => handleDeleteChat(c.id, e)}
-                  className="p-1 rounded hover:bg-red-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </span>
+                📁 All
               </button>
-            );
-          })}
+              {folders.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setSelectedFolderId(f.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                    selectedFolderId === f.id
+                      ? 'bg-blue-50 border-blue-200 text-blue-700'
+                      : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  📂 {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Chat conversations thread navigation list */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-none">
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 text-xs font-medium">No discussions in this folder</div>
+          ) : (
+            filteredConversations.map((c) => {
+              const isSelected = c.id === activeConvId;
+              const mappedFolder = folders.find(f => f.id === convFolderMapping[c.id]);
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => {
+                    setActiveConvId(c.id);
+                    // on mobile, close sidebar after pick
+                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                  }}
+                  className={`group w-full p-3 rounded-xl flex flex-col gap-1.5 text-left transition relative cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-50/50 text-blue-950 font-semibold border-l-2 border-blue-600'
+                      : 'text-slate-755 hover:bg-slate-100/50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-between min-w-0">
+                    <span className="truncate text-xs text-slate-800 font-bold max-w-[150px]">{c.title}</span>
+                    <button
+                      onClick={(e) => handleDeleteChat(c.id, e)}
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-650 transition shrink-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-slate-400 font-medium">
+                      {new Date(c.created_at).toLocaleDateString()}
+                    </span>
+                    {/* Folder assignment toggler */}
+                    <select
+                      value={convFolderMapping[c.id] || ''}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => handleAssignFolder(c.id, e.target.value)}
+                      className="text-[8px] bg-white border border-slate-150 rounded px-1 text-slate-500 max-w-[75px] font-bold focus:outline-none"
+                    >
+                      <option value="">Move to...</option>
+                      {folders.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Dynamic Credit Tracker panel */}
-        <div className="p-4 border-t border-gray-50 dark:border-zinc-800/30 bg-white dark:bg-zinc-950">
-          <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 p-3 flex flex-col gap-1">
-            <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Usage tracking limit</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-zinc-200">
-              {creditLimit} Remaining Credits
-            </span>
-            <div className="w-full bg-emerald-200 dark:bg-emerald-900 h-1.5 rounded-full overflow-hidden mt-1 text-[1px]">
-              <div style={{ width: `${(creditLimit / 50) * 100}%` }} className="bg-emerald-600 h-full transition-all duration-300" />
+        <div className="p-4 border-t border-slate-100 bg-white">
+          <div className="rounded-2xl bg-gradient-to-r from-blue-50/50 to-indigo-50/50 p-3.5 border border-slate-100">
+            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
+              <span>Sandbox limits</span>
+              <span className="text-[11px] font-mono font-bold text-indigo-600">{creditLimit}/50 units</span>
             </div>
+            <div className="w-full bg-slate-150 h-1.5 rounded-full overflow-hidden text-[1px]">
+              <div style={{ width: `${(creditLimit / 50) * 100}%` }} className="bg-indigo-600 h-full transition-all duration-300" />
+            </div>
+            <p className="text-[9px] text-slate-450 mt-2 font-medium leading-relaxed">
+              Sandbox credit counts down per dispatch. Administrative role settings override total allocation directly.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Main AI Interaction Portal */}
-      <div className="lg:col-span-8 flex flex-col justify-between bg-white dark:bg-zinc-950">
+      {/* Main ChatGPT Chat Frame Container */}
+      <div className="lg:col-span-8 flex flex-col justify-between bg-white relative">
         
-        {/* Dynamic heading info */}
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-emerald-600" />
+        {/* Chat Workspace Header */}
+        <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shadow-xs shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Mobile collapsible indicator */}
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="lg:hidden p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500"
+            >
+              {isSidebarOpen ? <ChevronLeft className="h-4.5 w-4.5" /> : <ChevronRight className="h-4.5 w-4.5" />}
+            </button>
+            <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Bot className="h-5 w-5" />
+            </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 leading-tight">
                 Sugora Copilot
-                <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold uppercase">Active</span>
+                <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+                  Online
+                </span>
               </h3>
-              <p className="text-[9px] text-gray-400 font-medium">Model: gemini-3.5-flash (Secure execution via backend)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Model: gemini-3.5-flash (Secure API execution)</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 lg:hidden">
-            <button onClick={handleCreateNewChat} className="text-xs bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-lg font-bold">
-              New
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleCreateNewChat} 
+              className="p-2 rounded-xl hover:bg-slate-50 text-slate-500"
+              title="New dialog thread"
+            >
+              <Plus className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Dialog bubble board */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50/20 dark:bg-zinc-900/10 space-y-4">
+        {/* Chat message bubbles scroll column */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/20 space-y-4">
           {activeMessages.map((msg) => {
             const isModel = msg.role === 'model';
+            const isHovered = isHoveredMsgId === msg.id;
+
             return (
-              <div key={msg.id} className={`flex ${isModel ? 'justify-start' : 'justify-end'}`}>
-                <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm relative ${
+              <div 
+                key={msg.id} 
+                className={`flex ${isModel ? 'justify-start' : 'justify-end'}`}
+                onMouseEnter={() => setIsHoveredMsgId(msg.id)}
+                onMouseLeave={() => {
+                  setIsHoveredMsgId(null);
+                  setActiveEmojiDropdownMsgId(null);
+                }}
+              >
+                <div className={`max-w-[85%] rounded-2xl p-4.5 shadow-xs relative group/bubble border ${
                   isModel
-                    ? 'bg-white text-gray-900 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-100 dark:border-zinc-800'
-                    : 'bg-emerald-600 text-white'
+                    ? 'bg-white text-slate-800 border-slate-100'
+                    : 'bg-white text-slate-800 border-indigo-200/50 ring-2 ring-indigo-50/50'
                 }`}>
-                  <div className="flex items-center justify-between gap-4 border-b border-gray-50/10 pb-1.5 text-[9px] uppercase tracking-wide font-bold opacity-60 mb-2">
-                    <span>{isModel ? 'Sugora AI' : 'Creator Panel'}</span>
-                    <button
-                      onClick={() => handleCopyMessage(msg.content)}
-                      className="p-1 hover:bg-black/10 rounded flex items-center gap-1"
-                      title="Copy content"
-                    >
-                      {copiedText === msg.content ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-
-                  {/* Message prompt block formatting */}
-                  <div className="text-xs space-y-2 leading-relaxed">
-                    {msg.content.split('\n\n').map((paragraph, i) => {
-                      // Check for code blocks
-                      if (paragraph.startsWith('```')) {
-                        const cleanCode = paragraph.replace(/```/g, '');
-                        return (
-                          <pre key={i} className="bg-zinc-950 text-emerald-400 p-3 rounded-lg overflow-x-auto font-mono text-[10px] border border-zinc-800/80 my-2">
-                            <code>{cleanCode}</code>
-                          </pre>
-                        );
-                      }
+                  
+                  {/* Sender title & Utility copy row */}
+                  <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2 mb-2">
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-indigo-600">
+                      {isModel ? 'Sugora AI Assistant' : 'You (Creator Account)'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleCopyMessage(msg.content)}
+                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition"
+                        title="Copy message"
+                      >
+                        {copiedText === msg.content ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      </button>
                       
-                      // Check for itemized headings or lists
-                      if (paragraph.startsWith('-')) {
-                        return (
-                          <ul key={i} className="list-disc pl-4 space-y-1 my-1">
-                            {paragraph.split('\n').map((li, idx) => (
-                              <li key={idx}>{li.replace('-', '').trim()}</li>
-                            ))}
-                          </ul>
-                        );
-                      }
+                      {/* React Emoji Selector */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setActiveEmojiDropdownMsgId(activeEmojiDropdownMsgId === msg.id ? null : msg.id)}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition"
+                          title="Add reaction"
+                        >
+                          <Smile className="h-3.5 w-3.5" />
+                        </button>
 
-                      return <p key={i} className="whitespace-pre-wrap">{paragraph}</p>;
-                    })}
+                        {activeEmojiDropdownMsgId === msg.id && (
+                          <div className="absolute right-0 bottom-full mb-1 z-20 bg-white border border-slate-150 shadow-md rounded-lg p-1.5 flex gap-1 animate-fadeIn">
+                            {POPULAR_EMOJIS.map(emoji => (
+                              <button
+                                key={emoji}
+                                onClick={() => handleAddReaction(msg.id, emoji)}
+                                className="hover:bg-slate-50 p-1 text-sm rounded transition"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <span className="absolute bottom-1 right-2 text-[8px] opacity-40">
+                  {/* Render simulated image attachment */}
+                  {msg.imageUrl && (
+                    <div className="mb-3 rounded-xl overflow-hidden border border-slate-100 max-w-sm">
+                      <img src={msg.imageUrl} alt="Attached screenshot analysis" className="w-full object-cover max-h-48" />
+                    </div>
+                  )}
+
+                  {/* Message body using react-markdown */}
+                  <div className="text-xs text-slate-700 leading-relaxed font-sans space-y-3 prose max-w-none">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+
+                  {/* Current reactions listing */}
+                  {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-3.5">
+                      {Object.entries(msg.reactions).map(([reactionEmoji, reactionCount]) => (
+                        <span 
+                          key={reactionEmoji} 
+                          className="inline-flex items-center gap-1 bg-slate-50 border border-slate-150 rounded-full px-2 py-0.5 text-[10px] font-mono text-slate-500"
+                        >
+                          <span>{reactionEmoji}</span>
+                          <span className="font-bold">{reactionCount}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <span className="block text-[8px] opacity-40 text-right mt-2 text-slate-400 select-none">
                     {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -297,36 +556,93 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
 
           {isPendingAI && (
             <div className="flex justify-start">
-              <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-gray-100 dark:border-zinc-800 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span className="text-[11px] font-mono font-bold text-gray-400 animate-pulse">Copilot is formulating advice...</span>
+              <div className="bg-white border border-slate-105 p-4 rounded-2xl flex items-center gap-2.5 shadow-sm">
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                </span>
+                <span className="text-[11px] font-mono font-bold text-slate-400 animate-pulse">
+                  Copilot is formulating expert advice...
+                </span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Prompt Dispatcher Bar */}
-        <div className="p-3 border-t border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Ask Copilot: e.g. How do I setup Razorpay, or write database migrations..."
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendPrompt();
-              }}
-              disabled={isPendingAI}
-              className="flex-1 rounded-xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 py-3 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-            />
+        {/* Prompt Dispatcher and Sandbox helpers */}
+        <div className="p-3 md:p-4 border-t border-slate-150 bg-white shrink-0">
+          
+          {/* Active attachment review bubble */}
+          {attachedImage && (
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-105 rounded-xl px-3.5 py-1.5 mb-3 text-xs text-blue-800 animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                <span>Simulated Image file ready for review</span>
+              </div>
+              <button onClick={() => setAttachedImage(null)} className="text-[10px] font-bold text-red-600">
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {isMicListening && (
+            <div className="flex items-center gap-2.5 bg-red-50 border border-red-105 rounded-xl px-3.5 py-2 mb-3 text-xs text-red-800 animate-pulse">
+              <Mic className="h-4 w-4 animate-bounce text-red-600" />
+              <span>Listening to voice commands... Simulated transaction templates ready.</span>
+            </div>
+          )}
+
+          <div className="flex gap-2 items-center">
+            {/* Simulated Multi-Media Actions */}
+            <div className="flex gap-1">
+              <button
+                onClick={handleAttachSimulatedImage}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 transition active:scale-95"
+                title="Mock image upload"
+              >
+                <Image className="h-4.5 w-4.5" />
+              </button>
+              <button
+                onClick={handleSimulateVoiceInput}
+                className={`p-2.5 rounded-xl transition active:scale-95 ${
+                  isMicListening 
+                    ? 'bg-red-100 text-red-600 animate-scale' 
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-500'
+                }`}
+                title="Google Speech voice prompt simulation"
+              >
+                <Mic className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Ask Copilot: How do I grow followers on Instagram, or code custom grids..."
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSendPrompt();
+                }}
+                disabled={isPendingAI}
+                className="w-full rounded-xl bg-slate-50 focus:bg-white border border-slate-150 hover:border-slate-300 focus:ring-2 focus:ring-blue-500 py-3 pl-4 pr-10 text-xs focus:outline-none transition disabled:opacity-50 text-slate-800 font-medium"
+              />
+            </div>
+
             <button
               onClick={handleSendPrompt}
-              disabled={isPendingAI || !inputText.trim()}
-              className="rounded-xl bg-emerald-600 p-3 text-white hover:bg-emerald-700 active:scale-95 transition disabled:opacity-40 shrink-0"
+              disabled={isPendingAI || (!inputText.trim() && !attachedImage)}
+              className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-3 text-white hover:opacity-95 active:scale-95 transition disabled:opacity-40 shrink-0 shadow-md"
             >
               <Send className="h-4.5 w-4.5" />
             </button>
+          </div>
+
+          <div className="mt-2 text-center">
+            <span className="text-[9.5px] text-slate-400 font-mono">
+              ⚡ Secure end-to-end communication sandbox active. Free allocations refreshed hourly.
+            </span>
           </div>
         </div>
       </div>

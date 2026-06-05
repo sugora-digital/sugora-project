@@ -14,6 +14,14 @@ export interface Profile {
   role: UserRole;
   created_at: string;
   is_verified: boolean;
+  bio?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  website?: string;
+  phone?: string;
+  whatsapp?: string;
+  updated_at?: string;
 }
 
 export interface Wallet {
@@ -165,7 +173,9 @@ export interface ChatMessage {
   file_url?: string;
   file_type?: 'image' | 'file';
   created_at: string;
-  is_read: boolean;
+  is_read?: boolean;
+  attachment?: { url: string; type: 'image' | 'video' | 'audio' | 'document' | 'file'; name?: string; size?: string; };
+  reactions?: string[];
 }
 
 export interface SupportTicket {
@@ -201,3 +211,35 @@ export interface SiteSettings {
   gemini_api_configured: boolean;
   messages_limit: number; // default limit e.g. 50
 }
+
+export interface WebsiteSettings {
+  site_name: string;
+  site_description: string;
+  logo_url: string;
+  favicon_url: string;
+  footer_logo_url?: string;
+  tagline?: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  address?: string;
+  social_instagram?: string;
+  social_facebook?: string;
+  social_twitter?: string;
+  social_linkedin?: string;
+  social_youtube?: string;
+  social_tiktok?: string;
+}
+
+export interface CustomPage {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  seo_title?: string;
+  seo_description?: string;
+  status: 'Published' | 'Draft';
+  created_at?: string;
+  template?: string;
+}
+

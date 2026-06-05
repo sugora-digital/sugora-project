@@ -26,7 +26,7 @@ import {
   Share2,
   Lock
 } from 'lucide-react';
-import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, UserRole } from './types';
+import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, UserRole, WebsiteSettings, CustomPage, KYCStatus } from './types';
 import { INITIAL_PRODUCTS, INITIAL_APPS, INITIAL_MOCK_USERS, INITIAL_MOCK_TICKETS, INITIAL_TRANSACTIONS } from './mockData';
 
 // Component imports
@@ -61,7 +61,7 @@ import {
 } from './lib/supabaseClient';
 
 export default function App() {
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
@@ -98,7 +98,7 @@ export default function App() {
   });
 
   const [transactionsList, setTransactionsList] = useState<WalletTransaction[]>([]);
-  const [kycStatus, setKycStatus] = useState<KYCRequest['status']>('unsubmitted');
+  const [kycStatus, setKycStatus] = useState<KYCStatus | 'unsubmitted'>('unsubmitted');
   const [withdrawRequests, setWithdrawRequests] = useState<WithdrawRequest[]>([]);
   const [kycRequest, setKycRequest] = useState<KYCRequest | null>(null);
 
@@ -108,6 +108,35 @@ export default function App() {
     gemini_api_configured: true,
     messages_limit: 50
   });
+
+  // Website Settings State
+  const [websiteSettings, setWebsiteSettings] = useState<WebsiteSettings>({
+    site_name: 'Sugora Platform',
+    site_description: 'Redesigning modern mobile link bio services',
+    logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+    favicon_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+    footer_logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+    tagline: 'Connect. Create. Monetize.',
+    email: 'hello@sugora.com',
+    phone: '+91 98765 43210',
+    whatsapp: '+91 98765 43210',
+    address: 'Mumbai, Maharashtra, India'
+  });
+
+  // Dynamic Custom Pages state list
+  const [customPages, setCustomPages] = useState<CustomPage[]>([
+    {
+      id: 'p-1',
+      title: 'About Sugora Ecosystem',
+      slug: 'about-us',
+      content: '<h1>Our Mission</h1><p>Sugora provides standard web engines and link bio structures to empower creators across modern micro-payment frameworks with complete transparency.</p>',
+      seo_title: 'About Sugora Ecosystem - Verified Creators',
+      seo_description: 'Empowering creator bio economies with integrated UPI wallets and store catalogs.',
+      status: 'Published',
+      created_at: new Date().toISOString(),
+      template: 'standard'
+    }
+  ]);
 
   // Purchase state logic
   const [ownedProductIds, setOwnedProductIds] = useState<string[]>([]);
@@ -345,6 +374,15 @@ export default function App() {
     } else if (signUpStep === 2) {
       setSignUpStep(3);
     }
+  };
+
+  // Google OAuth Auto Onboarding simulation
+  const handleGoogleSignInMock = () => {
+    setNameInput('Alex Rivera');
+    setUsernameInput('alex_google_oauth');
+    setAvatarInput('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150');
+    setRoleInput('user');
+    setSignUpStep(2);
   };
 
   // Sign Up / Register Account Creation
@@ -724,6 +762,18 @@ export default function App() {
     setTicketsList(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'resolved' } : t));
   };
 
+  const handleUpdateWebsiteSettings = (newSettings: WebsiteSettings) => {
+    setWebsiteSettings(newSettings);
+  };
+
+  const handleAddCustomPage = (newPage: CustomPage) => {
+    setCustomPages(prev => [...prev, newPage]);
+  };
+
+  const handleDeleteCustomPage = (slug: string) => {
+    setCustomPages(prev => prev.filter(p => p.slug !== slug));
+  };
+
   return (
     <div className="min-h-screen bg-[#fafbfc] text-[#1a1f26] dark:bg-[#06080a] dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       
@@ -762,18 +812,34 @@ export default function App() {
 
             {/* Step 1: Input Name and unique username (and Email/Password if Supabase active) */}
             {signUpStep === 1 && (
-              <div className="space-y-4">
+              <div className="space-y-4 w-full">
+                {/* 1. Google OAuth Signup option */}
+                <button
+                  type="button"
+                  onClick={handleGoogleSignInMock}
+                  className="w-full py-3 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center gap-2.5 text-xs font-bold transition shadow-xs cursor-pointer active:scale-98"
+                >
+                  <img src="https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&q=80&w=35" className="h-4.5 w-4.5 object-contain" alt="Google logo icon" />
+                  Continue with Google OAuth
+                </button>
+
+                <div className="flex items-center gap-2 text-[9px] text-slate-400 font-extrabold uppercase py-1 select-none">
+                  <div className="h-0.5 flex-grow bg-slate-105" />
+                  <span>OR Sign In with Panel Credentials</span>
+                  <div className="h-0.5 flex-grow bg-slate-105" />
+                </div>
+
                 {isSupabaseConfigured() && (
-                  <div className="flex justify-center border-b border-zinc-100 dark:border-zinc-800 pb-2 mb-2 gap-4">
+                  <div className="flex justify-center border-b border-slate-100 pb-2 mb-2 gap-4">
                     <button
                       onClick={() => {
                         setIsSignInMode(false);
                         setAuthErrorMessage('');
                       }}
-                      className={`pb-1 text-xs font-bold transition-all ${
+                      className={`pb-1 text-xs font-bold transition-all cursor-pointer ${
                         !isSignInMode 
-                          ? 'text-emerald-600 border-b-2 border-emerald-600' 
-                          : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600'
+                          ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                          : 'text-slate-400 hover:text-slate-650'
                       }`}
                     >
                       Create Account
@@ -783,10 +849,10 @@ export default function App() {
                         setIsSignInMode(true);
                         setAuthErrorMessage('');
                       }}
-                      className={`pb-1 text-xs font-bold transition-all ${
+                      className={`pb-1 text-xs font-bold transition-all cursor-pointer ${
                         isSignInMode 
-                          ? 'text-emerald-600 border-b-2 border-emerald-600' 
-                          : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600'
+                          ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                          : 'text-slate-400 hover:text-slate-650'
                       }`}
                     >
                       Sign In
@@ -798,28 +864,28 @@ export default function App() {
                 {(!isSupabaseConfigured() || !isSignInMode) && (
                   <>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Your Full Name</label>
+                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Your Full Name</label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. John Doe"
+                        placeholder="e.g. Alex Rivera"
                         value={nameInput}
                         onChange={(e) => setNameInput(e.target.value)}
-                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium text-black dark:text-white"
+                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Select Profile Username (Unique)</label>
+                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Select Profile Username (Unique)</label>
                       <div className="relative">
-                        <span className="absolute left-3.5 top-3 text-xs font-mono text-gray-400">sugora.com/u/</span>
+                        <span className="absolute left-3.5 top-3.5 text-xs font-mono text-slate-405">sugora.com/u/</span>
                         <input
                           type="text"
                           required
                           placeholder="johndoe"
                           value={usernameInput}
                           onChange={(e) => setUsernameInput(e.target.value)}
-                          className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 pl-[92px] pr-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-black dark:text-white"
+                          className="w-full rounded-2xl bg-slate-50 pl-[92px] pr-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800 font-mono"
                         />
                       </div>
                       {usernameError && (
@@ -829,8 +895,8 @@ export default function App() {
 
                     {/* Choose Role / Panel Selector during signup */}
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Select Account Panel / Role</label>
-                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-150 dark:bg-[#080a0c] border border-gray-100 dark:border-zinc-800 rounded-xl">
+                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Select Account Panel / Role</label>
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-50 border rounded-xl">
                         {[
                           { id: 'user', label: 'User Hub' },
                           { id: 'support', label: 'Support Desk' },
@@ -842,15 +908,15 @@ export default function App() {
                             onClick={() => setRoleInput(roleOpt.id as UserRole)}
                             className={`py-1.5 rounded-lg text-[10px] font-bold text-center transition cursor-pointer ${
                               roleInput === roleOpt.id
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-500 hover:text-slate-800'
                             }`}
                           >
                             {roleOpt.label}
                           </button>
                         ))}
                       </div>
-                      <p className="text-[9px] text-gray-400 dark:text-zinc-500 mt-1 leading-normal">
+                      <p className="text-[9px] text-slate-400 mt-1 leading-normal font-semibold">
                         {roleInput === 'admin' && '👑 Owner dashboard with analytics control'}
                         {roleInput === 'support' && '🎫 Customer complaints & resolution terminal'}
                         {roleInput === 'user' && '🌲 Main Creator dashboard & bio templates'}
@@ -863,26 +929,26 @@ export default function App() {
                 {isSupabaseConfigured() && (
                   <>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Email Address</label>
+                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Email Address</label>
                       <input
                         type="email"
                         required
                         placeholder="e.g. alex@example.com"
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
-                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium text-black dark:text-white"
+                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Password</label>
+                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Password</label>
                       <input
                         type="password"
                         required
                         placeholder="Minimum 6 characters"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-medium text-black dark:text-white"
+                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800"
                       />
                     </div>
                   </>
@@ -890,32 +956,32 @@ export default function App() {
 
                 {/* Preset sign-in buttons */}
                 {isSignInMode && (
-                  <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80">
-                    <label className="block text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold mb-2 font-mono">⚡ Quick Demo Sign In Panels</label>
+                  <div className="pt-2.5 border-t border-slate-100">
+                    <label className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-2 font-mono">⚡ Quick Demo Sign In Panels</label>
                     <div className="grid grid-cols-3 gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleQuickSignIn('user')}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/35 border border-emerald-100 dark:border-emerald-900/20 text-center transition active:scale-95 cursor-pointer"
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-105/30 text-center transition active:scale-95 cursor-pointer"
                       >
-                        <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400">User Panel</span>
-                        <span className="text-[8px] text-emerald-600 opacity-85 font-mono">/dashboard</span>
+                        <span className="text-[10px] font-extrabold text-indigo-700">User Panel</span>
+                        <span className="text-[8px] text-indigo-501 opacity-85 font-mono">/dashboard</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQuickSignIn('support')}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/20 dark:hover:bg-teal-950/35 border border-teal-100 dark:border-teal-900/20 text-center transition active:scale-95 cursor-pointer"
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50/50 hover:bg-purple-105 border border-purple-100/30 text-center transition active:scale-95 cursor-pointer"
                       >
-                        <span className="text-[10px] font-extrabold text-teal-700 dark:text-teal-400">Support Panel</span>
-                        <span className="text-[8px] text-teal-600 opacity-85 font-mono">/support-dash</span>
+                        <span className="text-[10px] font-extrabold text-purple-700 font-bold">Support Panel</span>
+                        <span className="text-[8px] text-purple-550 opacity-85 font-mono">/support-dash</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQuickSignIn('admin')}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/35 border border-rose-100 dark:border-rose-900/20 text-center transition active:scale-95 cursor-pointer"
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50/50 hover:bg-rose-100/70 border border-rose-100/30 text-center transition active:scale-95 cursor-pointer"
                       >
-                        <span className="text-[10px] font-extrabold text-rose-700 dark:text-rose-400">Admin Panel</span>
-                        <span className="text-[8px] text-rose-600 opacity-85 font-mono">/analytics</span>
+                        <span className="text-[10px] font-extrabold text-rose-700 font-bold">Admin Panel</span>
+                        <span className="text-[8px] text-rose-551 opacity-85 font-mono">/analytics</span>
                       </button>
                     </div>
                   </div>
@@ -926,13 +992,14 @@ export default function App() {
                 )}
 
                 <button
+                  type="button"
                   onClick={handleOnboardingNextStep}
                   disabled={
                     isAuthLoading ||
                     (!isSignInMode && (!nameInput.trim() || !usernameInput.trim())) ||
                     (isSupabaseConfigured() && (!emailInput.trim() || passwordInput.length < 6))
                   }
-                  className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-semibold text-white active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3 text-xs font-semibold text-white active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   {isAuthLoading ? (
                     <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1243,11 +1310,16 @@ export default function App() {
                       kycRequests={kycRequest ? [kycRequest] : []}
                       withdrawRequests={withdrawRequests}
                       siteSettings={siteSettings}
+                      websiteSettings={websiteSettings}
+                      customPages={customPages}
                       onApproveKYC={handleApproveKYC}
                       onRejectKYC={handleRejectKYC}
                       onApproveWithdrawal={handleApproveWithdrawal}
                       onAddProduct={handleAddProduct}
                       onChangeCommission={handleChangeCommission}
+                      onUpdateWebsiteSettings={handleUpdateWebsiteSettings}
+                      onAddCustomPage={handleAddCustomPage}
+                      onDeleteCustomPage={handleDeleteCustomPage}
                     />
                   )}
 

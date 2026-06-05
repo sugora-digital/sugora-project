@@ -4,7 +4,11 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Send, Image, Paperclip, Smile, MoreVertical, Check, CheckCheck, ShieldAlert, ArrowLeft, Bot, Sparkles, Share2 } from 'lucide-react';
+import { 
+  Search, Send, Image, Paperclip, Smile, MoreVertical, Check, 
+  CheckCheck, ShieldAlert, ArrowLeft, Bot, Sparkles, Share2, 
+  UserPlus, UserCheck, MessageSquare, Plus 
+} from 'lucide-react';
 import { Profile, ChatRoom, ChatMessage } from '../types';
 
 interface ChatSystemProps {
@@ -99,6 +103,8 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
   const [simUploadUrl, setSimUploadUrl] = useState<string>('');
   const [isMobileListOpen, setIsMobileListOpen] = useState<boolean>(true);
 
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
   // Active searching for users that are NOT currently in the sidebar conversation rooms
   const searchedUsersToStart = searchQuery.trim() ? (usersList || []).filter(u => {
     // Suppress current user from discovery list
@@ -134,7 +140,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
       participant_id: user.id,
       participant_name: user.name,
       participant_username: user.username,
-      participant_avatar: user.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+      participant_avatar: user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
       is_online: true
     };
 
@@ -143,99 +149,80 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
       ...prev,
       [newRoomId]: [
         {
-          id: `welcome-${Date.now()}`,
+          id: `msg-welcome-${Date.now()}`,
           room_id: newRoomId,
           sender_id: user.id,
           sender_name: user.name,
-          text: `Hey there! I am ${user.name} (@${user.username}). Let's chat live here on Sugora Studio!`,
-          created_at: new Date().toISOString(),
-          is_read: true
+          text: `Hi there! I detected your username on the search roster. Let's brainstorm ideas for our brand campaigns!`,
+          created_at: new Date().toISOString()
         }
       ]
     }));
+
     handleSelectRoom(newRoomId);
     setSearchQuery('');
   };
-
-  const activeRoom = rooms.find(r => r.id === selectedRoomId);
-  const activeRoomMessages = messages[selectedRoomId] || [];
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Scroll to bottom on updates
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedRoomId, messages]);
 
   const handleSelectRoom = (roomId: string) => {
     setSelectedRoomId(roomId);
     setIsMobileListOpen(false);
 
-    // Mark messages in room as read
-    setRooms(prev => prev.map(r => {
-      if (r.id === roomId) {
-        return { ...r, unread_count: 0 };
-      }
-      return r;
-    }));
+    // Read unread metrics
+    setRooms(prev => prev.map(r => r.id === roomId ? { ...r, unread_count: 0 } : r));
   };
 
-  const handleSendMessage = (textToSend = inputVal, fileData?: { url: string; type: 'image' | 'file' }) => {
-    if (!textToSend.trim() && !fileData) return;
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, selectedRoomId]);
 
-    const newMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
+  const activeRoom = rooms.find(r => r.id === selectedRoomId);
+  const activeRoomMessages = messages[selectedRoomId] || [];
+
+  const handleSendMessage = (textToSend = '', attachment?: ChatMessage['attachment']) => {
+    const content = textToSend.trim() || inputVal.trim();
+    if (!content && !attachment) return;
+
+    const newMsg: ChatMessage = {
+      id: `m-${Date.now()}`,
       room_id: selectedRoomId,
-      sender_id: currentUser.id,
-      sender_name: currentUser.name,
-      text: textToSend,
-      file_url: fileData?.url,
-      file_type: fileData?.type,
+      sender_id: currentUser.id || 'current-user',
+      sender_name: currentUser.name || 'Current User',
+      text: content,
       created_at: new Date().toISOString(),
-      is_read: false
+      attachment
     };
 
-    // Update active room last message
+    setMessages(prev => ({
+      ...prev,
+      [selectedRoomId]: [...(prev[selectedRoomId] || []), newMsg]
+    }));
+
+    // Update room snapshot list
     setRooms(prev => prev.map(r => {
       if (r.id === selectedRoomId) {
         return {
           ...r,
-          last_message: textToSend || (fileData?.type === 'image' ? '📷 Image attached' : '📁 Document attached'),
+          last_message: content || 'Attachment uploaded',
           last_message_time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
         };
       }
       return r;
     }));
 
-    setMessages(prev => ({
-      ...prev,
-      [selectedRoomId]: [...(prev[selectedRoomId] || []), newMessage]
-    }));
+    if (textToSend.trim() === '') {
+      setInputVal('');
+    }
 
-    setInputVal('');
-    setShowEmojiPicker(false);
-
-    // Trigger customized automated support helper reply after 1.5 seconds
+    // Auto trigger simulations inside chatroom
     setTimeout(() => {
-      triggerSimulatedResponse(textToSend || '');
+      triggerSimulatedReply();
     }, 1500);
   };
 
-  const triggerSimulatedResponse = (userPromptText: string) => {
-    let replyText = 'Thanks for reaching out! Let me fetch that information for you.';
-    const promptLower = userPromptText.toLowerCase();
-
+  const triggerSimulatedReply = () => {
+    let replyText = "Fascinating perspective! Let's schedule a Zoom call to calibrate these digital downloads.";
     if (selectedRoomId === 'room-support') {
-      if (promptLower.includes('kyc') || promptLower.includes('verify')) {
-        replyText = 'Hi! For quick KYC approval, ensure both files are clear JPEG/PNG captures. Under Admin panel you can instantly simulate approvals yourself!';
-      } else if (promptLower.includes('wallet') || promptLower.includes('payout') || promptLower.includes('withdraw')) {
-        replyText = 'Our automated system supports UPI withdrawal instantly once Approved. The minimum limit is ₹100. Let me check if your account is ready.';
-      } else if (promptLower.includes('link') || promptLower.includes('tree') || promptLower.includes('sugora')) {
-        replyText = 'You can customize your card widgets, theme background, social profiles directly inside the Sugora Tree tab. Try clicking Customize!';
-      } else {
-        replyText = 'Understood. Let me create an assistance request. Agent Sarah has been updated inside our support queue!';
-      }
-    } else {
-      replyText = 'Awesome response! Let me double check that and get back to you soon.';
+      replyText = "We received your UPI disbursement challenge logs. Resolving this on Razorpay systems within minutes!";
     }
 
     const simMessage: ChatMessage = {
@@ -253,7 +240,6 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
       [selectedRoomId]: [...(prev[selectedRoomId] || []), simMessage]
     }));
 
-    // Update room list
     setRooms(prev => prev.map(r => {
       if (r.id === selectedRoomId) {
         return {
@@ -278,350 +264,311 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
     setShowUploadSimModal(null);
   };
 
-  const filteredRooms = rooms.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()) || r.participant_name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const handleMessageReaction = (msgId: string, emoji: string) => {
+    setMessages(prev => ({
+      ...prev,
+      [selectedRoomId]: (prev[selectedRoomId] || []).map(m => {
+        if (m.id === msgId) {
+          const reactions = m.reactions || [];
+          const updatedReactions = reactions.includes(emoji) 
+            ? reactions.filter(r => r !== emoji) 
+            : [...reactions, emoji];
+          return { ...m, reactions: updatedReactions };
+        }
+        return m;
+      })
+    }));
+  };
+
+  const filteredRooms = rooms.filter(r => 
+    r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.participant_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.participant_username && r.participant_username.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   return (
-    <div id="chat-system-widget" className="relative flex h-[74vh] min-h-[480px] md:h-[640px] rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-zinc-800/80 dark:bg-zinc-950">
+    <div id="chat-system-widget" className="relative flex h-[74vh] min-h-[500px] md:h-[630px] rounded-3xl overflow-hidden border border-slate-105 bg-white shadow-xl animate-fadeIn">
       
-      {/* Search & Rooms list (Full width on search list state, sidebar on desktop) */}
-      <div className={`w-full md:w-80 shrink-0 border-r border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-900/30 flex flex-col ${
+      {/* 1. ROOMS SELECTOR SIDEBAR (Mobile togglable) */}
+      <div className={`w-full md:w-80 shrink-0 border-r bg-slate-50/50 flex flex-col ${
         isMobileListOpen ? 'block' : 'hidden md:flex'
       }`}>
-        <div className="p-4 border-b border-gray-50 dark:border-zinc-800">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
-            Sugora Chat <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-medium">Realtime</span>
+        {/* Search header container */}
+        <div className="p-4 border-b space-y-3 bg-white">
+          <h2 className="text-base font-black text-slate-900 flex items-center justify-between">
+            <span>Conversations</span>
+            <span className="text-[10px] bg-emerald-55 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-100 font-bold font-sans">REALTIME CONNECT</span>
           </h2>
-          <div className="mt-3 relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search conversations or username..."
+              placeholder="Search chats or @username..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl bg-white dark:bg-zinc-900 py-2 pl-9 pr-4 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-white"
+              className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-slate-700 font-semibold"
             />
           </div>
         </div>
 
-        {/* Channels/Inbox Scroll Column */}
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-50/40 dark:divide-zinc-800/10">
+        {/* List items block */}
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100/60 pb-16 md:pb-0">
           
-          {/* Real-time search users lookup rendering */}
-          {searchedUsersToStart.length > 0 && (
-            <div className="p-2 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 border-b border-gray-100 dark:border-zinc-850">
-              <span className="block text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-widest p-2 font-mono">
-                🔍 Discover New Users ({searchedUsersToStart.length})
-              </span>
-              <div className="space-y-1">
-                {searchedUsersToStart.map((u) => (
+          {/* USERNAME SEARCH RESULTS DISCOVERY DROPDOWN AREA */}
+          {searchQuery.trim() !== '' && (
+            <div className="bg-blue-550/10 p-2.5 space-y-1.5 p-y-2 border-b bg-indigo-50/20">
+              <span className="block text-[9.5px] uppercase font-black text-slate-400 tracking-wider px-1">Discover Users by username</span>
+              
+              {searchedUsersToStart.length === 0 ? (
+                <span className="block text-[11px] text-zinc-400 italic px-1 selection:none">No new username credentials matched.</span>
+              ) : (
+                searchedUsersToStart.map(user => (
                   <button
-                    key={u.id}
-                    onClick={() => handleStartNewChat(u)}
-                    className="w-full p-2 rounded-xl bg-white dark:bg-zinc-900 flex items-center gap-2.5 text-left border border-zinc-100 dark:border-zinc-800/65 hover:border-emerald-500 dark:hover:border-emerald-500/80 transition duration-150 cursor-pointer shadow-sm"
+                    key={user.id}
+                    onClick={() => handleStartNewChat(user)}
+                    className="w-full text-left p-2 rounded-xl bg-white hover:bg-slate-105 flex items-center justify-between border transition text-xs font-semibold"
                   >
-                    <img
-                      referrerPolicy="no-referrer"
-                      src={u.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=80'}
-                      alt={u.name}
-                      className="h-8 w-8 rounded-full object-cover shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="block text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate leading-tight">{u.name}</span>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">@{u.username} • <span className="opacity-75">{u.role}</span></span>
+                    <div className="flex gap-2 items-center min-w-0">
+                      <img referrerPolicy="no-referrer" src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'} className="h-6.5 w-6.5 rounded-full object-cover" />
+                      <div className="min-w-0">
+                        <span className="block text-slate-800 font-bold truncate max-w-[120px]">{user.name}</span>
+                        <span className="block text-[9px] text-slate-450 font-mono">@{user.username}</span>
+                      </div>
                     </div>
+                    <UserPlus className="h-4.5 w-4.5 text-blue-600 px-0.5 shrink-0" />
                   </button>
-                ))}
-              </div>
+                ))
+              )}
             </div>
           )}
 
-          {filteredRooms.map((r) => {
-            const isSelected = r.id === selectedRoomId;
+          {/* Regular Rooms */}
+          {filteredRooms.map((room) => {
+            const isSel = room.id === selectedRoomId;
             return (
-              <button
-                key={r.id}
-                onClick={() => handleSelectRoom(r.id)}
-                className={`w-full p-4 flex items-start gap-3 text-left transition ${
-                  isSelected ? 'bg-emerald-50/80 dark:bg-emerald-950/20 border-l-4 border-emerald-500' : 'hover:bg-gray-100/50 dark:hover:bg-zinc-900/40'
+              <div
+                key={room.id}
+                onClick={() => handleSelectRoom(room.id)}
+                className={`p-3.5 flex gap-3 cursor-pointer transition duration-150 ${
+                  isSel ? 'bg-indigo-50/40 border-l-[3.5px] border-blue-600' : 'hover:bg-slate-100/60'
                 }`}
               >
                 <div className="relative shrink-0">
                   <img
                     referrerPolicy="no-referrer"
-                    src={r.participant_avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=80'}
-                    alt={r.participant_name}
-                    className="h-11 w-11 rounded-full object-cover ring-2 ring-gray-100/80"
+                    src={room.participant_avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150'}
+                    alt={room.name}
+                    className="h-10 w-10 rounded-full object-cover bg-slate-100 border border-slate-100"
                   />
-                  {r.is_online && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                  {room.is_online && (
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-slate-100" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-gray-900 dark:text-zinc-100 truncate">{r.participant_name}</span>
-                    <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{r.last_message_time}</span>
+
+                <div className="flex-1 min-w-0 text-left space-y-0.5 pt-0.5">
+                  <div className="flex justify-between items-baseline">
+                    <h4 className="text-xs font-bold text-slate-800 truncate">{room.participant_name}</h4>
+                    <span className="text-[9px] text-slate-400 font-mono font-bold shrink-0">{room.last_message_time}</span>
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-500 truncate dark:text-zinc-400">{r.last_message}</p>
-                  {r.unread_count && r.unread_count > 0 ? (
-                    <span className="mt-1 inline-block bg-emerald-500 text-white rounded-full text-[10px] px-1.5 py-0.5 font-bold animate-bounce">
-                      {r.unread_count} new
-                    </span>
-                  ) : null}
+                  <div className="flex justify-between items-center text-[11px]">
+                    <p className="text-slate-450 truncate max-w-[155px] font-medium leading-relaxed">{room.last_message}</p>
+                    {room.unread_count > 0 && (
+                      <span className="h-4.5 w-4.5 rounded-md text-[9px] font-black bg-blue-600 text-white flex items-center justify-center shrink-0">
+                        {room.unread_count}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* Main chat window (Hidden on mobile if listing is active) */}
-      <div className={`flex-1 flex flex-col bg-white dark:bg-zinc-950 ${
-        isMobileListOpen ? 'hidden md:flex' : 'flex'
+      {/* 2. CONVERSATION VIEW WINDOW (Fills space on selection state) */}
+      <div className={`flex-1 flex flex-col bg-white ${
+        !isMobileListOpen ? 'flex' : 'hidden md:flex'
       }`}>
+        
+        {/* Active room header */}
         {activeRoom ? (
           <>
-            {/* Direct Channel Info header */}
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-950 shadow-sm shrink-0">
+            <div className="px-5 py-3 border-b flex items-center justify-between shrink-0 bg-slate-50/55">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setIsMobileListOpen(true)}
-                  className="md:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-600 dark:text-zinc-300"
+                  className="rounded-xl h-8 w-8 bg-white border flex md:hidden items-center justify-center text-slate-550 transition cursor-pointer"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4.5 w-4.5" />
                 </button>
-                <img
-                  referrerPolicy="no-referrer"
-                  src={activeRoom.participant_avatar}
-                  alt={activeRoom.participant_name}
-                  className="h-9 w-9 rounded-full object-cover"
-                />
+
+                <div className="relative shrink-0">
+                  <img
+                    referrerPolicy="no-referrer"
+                    src={activeRoom.participant_avatar}
+                    alt={activeRoom.name}
+                    className="h-9 w-9 rounded-full object-cover border"
+                  />
+                  {activeRoom.is_online && (
+                    <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 border-2 border-slate-50" />
+                  )}
+                </div>
+
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100">{activeRoom.participant_name}</h3>
-                  <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                    {activeRoom.is_online ? (
-                      <>
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Active now
-                      </>
-                    ) : 'offline'}
-                  </p>
+                  <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
+                    {activeRoom.participant_name}
+                  </h3>
+                  <span className="text-[9.5px] text-slate-450 block font-mono">@{activeRoom.participant_username || 'support'}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {activeRoom.type === 'support' && (
-                  <span className="inline-flex items-center gap-1 rounded bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:bg-teal-950/30">
-                    <Sparkles className="h-2.5 w-2.5" /> Support Operator
-                  </span>
-                )}
-                <button className="p-1.5 text-gray-400 hover:text-gray-600 rounded">
-                  <MoreVertical className="h-5 w-5" />
-                </button>
+
+              <div className="flex items-center gap-1 p-0.5 bg-white border rounded-xl">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 text-transparent mx-2 inline-block">●</span>
+                <span className="text-[10.5px] text-slate-450 font-bold tracking-tight pr-2">Realtime Sync</span>
               </div>
             </div>
 
-            {/* Message Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/40 dark:bg-zinc-900/20">
+            {/* Messages box list scrolling container */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 bg-slate-50/15">
               {activeRoomMessages.map((msg, index) => {
-                const isMyMessage = msg.sender_id === currentUser.id;
+                const isMe = msg.sender_id === currentUser.id || msg.sender_id === 'current-user';
                 return (
-                  <div
-                    key={msg.id || index}
-                    className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[75%] rounded-2xl p-3 shadow-sm ${
-                      isMyMessage
-                        ? 'bg-emerald-600 text-white rounded-br-none'
-                        : 'bg-white text-gray-900 dark:bg-zinc-900 dark:text-zinc-100 rounded-bl-none border border-gray-100 dark:border-zinc-800'
-                    }`}>
-                      {!isMyMessage && (
-                        <p className="text-[10px] uppercase font-bold tracking-wider opacity-60 mb-1">
-                          {msg.sender_name}
-                        </p>
-                      )}
+                  <div key={msg.id || index} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                    <div className="max-w-[80%] space-y-1.5">
                       
-                      {/* Text content */}
-                      {msg.text && <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
-
-                      {/* Attached images / files */}
-                      {msg.file_url && msg.file_type === 'image' && (
-                        <div className="mt-2 text-center">
-                          <img
-                            referrerPolicy="no-referrer"
-                            src={msg.file_url}
-                            alt="attachment"
-                            className="max-h-48 rounded-lg object-contain bg-black/5"
-                          />
-                        </div>
+                      {/* Name tags */}
+                      {!isMe && (
+                        <span className="block text-[8.5px] text-slate-400 font-bold px-1 uppercase tracking-widest">{msg.sender_name}</span>
                       )}
 
-                      {msg.file_url && msg.file_type === 'file' && (
-                        <div className={`mt-2 p-2 rounded flex items-center gap-2 text-xs font-mono border ${
-                          isMyMessage ? 'bg-emerald-700/50 border-emerald-500' : 'bg-gray-50 dark:bg-zinc-800 border-gray-100 dark:border-zinc-800'
-                        }`}>
-                          <Paperclip className="h-4.5 w-4.5" />
-                          <span className="truncate max-w-[120px]">{msg.file_url}</span>
-                        </div>
-                      )}
+                      <div className={`p-3.5 rounded-3xl text-xs font-semibold leading-relaxed relative group ${
+                        isMe 
+                          ? 'bg-blue-600 text-white rounded-br-none' 
+                          : 'bg-white border text-slate-850 rounded-bl-none shadow-xs'
+                      }`}>
+                        
+                        {/* Text bubble */}
+                        {msg.text && <p className="block whitespace-pre-wrap">{msg.text}</p>}
 
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[9px] opacity-70">
-                        <span>{new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
-                        {isMyMessage && (
-                          msg.is_read ? <CheckCheck className="h-3 w-3 text-teal-200" /> : <Check className="h-3 w-3 text-white/70" />
+                        {/* Attachments rendering */}
+                        {msg.attachment && msg.attachment.type === 'image' && (
+                          <img referrerPolicy="no-referrer" src={msg.attachment.url} alt="Shared Upload" className="max-w-60 max-h-40 object-cover rounded-xl mt-1.5 shadow-xs border" />
+                        )}
+                        {msg.attachment && msg.attachment.type === 'file' && (
+                          <div className="flex items-center gap-2 bg-slate-100 text-slate-755 border rounded-xl p-2.5 mt-1.5">
+                            <span className="font-bold text-[10.5px] truncate max-w-[150px]">{msg.attachment.url}</span>
+                          </div>
+                        )}
+
+                        {/* Message Reaction Hover Drawer */}
+                        <div className="absolute top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1 bg-white/95 backdrop-blur-md rounded-xl p-1 border shadow-md z-15 right-full mr-2">
+                          {POPULAR_EMOJIS.slice(0, 5).map(e_char => (
+                            <button
+                              key={e_char}
+                              onClick={() => handleMessageReaction(msg.id, e_char)}
+                              className="hover:scale-125 text-[11px] transition duration-100"
+                            >
+                              {e_char}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Display reactions */}
+                        {msg.reactions && msg.reactions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 absolute top-full -translate-y-1/2 right-4 bg-white px-1.5 py-0.5 rounded-full border text-[9.5px] text-slate-500 shadow-sm font-sans z-12 select-none">
+                            {msg.reactions.map((react, r_i) => (
+                              <span key={r_i}>{react}</span>
+                            ))}
+                          </div>
                         )}
                       </div>
+
+                      <span className={`block text-[8px] text-slate-400 font-mono ${isMe ? 'text-right' : 'text-left'}`}>
+                        {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                 );
               })}
+
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message composer input bar */}
-            <div className="p-3 border-t border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
-              {/* Popular quick emoji bar */}
-              {showEmojiPicker && (
-                <div className="mb-2 p-2 bg-gray-50 dark:bg-zinc-900 rounded-xl flex items-center justify-around">
-                  {POPULAR_EMOJIS.map(em => (
-                    <button
-                      key={em}
-                      onClick={() => {
-                        setInputVal(prev => prev + em);
-                        setShowEmojiPicker(false);
-                      }}
-                      className="text-base hover:scale-125 transition"
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              )}
-
+            {/* Message input anchor */}
+            <div className="p-3 bg-white border-t space-y-2">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-1.5 focus:outline-none text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
-                >
-                  <Smile className="h-5 w-5" />
-                </button>
                 
-                {/* Upload attachment proxies */}
+                {/* Simulated file attachments selectors */}
                 <button
                   onClick={() => setShowUploadSimModal('image')}
-                  className="p-1.5 focus:outline-none text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
-                  title="Simulate Image Attachment"
+                  className="rounded-xl h-9.5 w-9.5 bg-slate-50 hover:bg-slate-100 border text-slate-555 flex items-center justify-center transition shrink-0"
+                  title="Upload copy assets"
                 >
-                  <Image className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setShowUploadSimModal('file')}
-                  className="p-1.5 focus:outline-none text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
-                  title="Simulate Document Attachment"
-                >
-                  <Paperclip className="h-5 w-5" />
+                  <Image className="h-4.5 w-4.5" />
                 </button>
 
-                <textarea
-                  value={inputVal}
-                  onChange={(e) => setInputVal(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
+                {/* Main input */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendMessage();
                   }}
-                  placeholder="Type a message..."
-                  className="flex-1 rounded-xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 py-2 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none h-9 align-middle"
-                />
-
-                <button
-                  onClick={() => handleSendMessage()}
-                  className="rounded-xl bg-emerald-600 p-2 text-white hover:bg-emerald-700 active:scale-95 transition"
+                  className="flex-1 flex gap-2"
                 >
-                  <Send className="h-4.5 w-4.5" />
-                </button>
+                  <input
+                    type="text"
+                    value={inputVal}
+                    onChange={(e) => setInputVal(e.target.value)}
+                    placeholder="Type an instant message..."
+                    className="flex-1 rounded-2xl bg-slate-50 hover:bg-slate-100/50 border p-2.5 text-xs font-semibold focus:bg-white outline-none focus:ring-1 focus:ring-blue-500 text-slate-800"
+                  />
+                  
+                  <button
+                    type="submit"
+                    className="rounded-2xl h-10 w-10 bg-blue-600 hover:bg-blue-700 text-[#FFFFFF] shadow-sm flex items-center justify-center transition shrink-0 hover:scale-105 active:scale-95"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </form>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
-            <Smile className="h-12 w-12 text-gray-200 dark:text-zinc-800 mb-2" />
-            <p className="text-sm">Select any dialogue on the left column to begin chatting!</p>
+          <div className="flex-1 flex flex-col justify-center items-center text-center p-12 text-slate-400 selection:none select-none">
+            <MessageSquare className="h-12 w-12 text-slate-350 animate-bounce mb-3" />
+            <h4 className="font-extrabold text-slate-650">Select or Start a conversation</h4>
+            <p className="text-xs text-slate-400 max-w-xs mt-1.5 leading-relaxed font-semibold">Enter a profile name inside the searching panel to chat immediately.</p>
           </div>
         )}
       </div>
 
-      {/* Simulated Upload modal popup */}
+      {/* Simulated image/file attachment uploader modal */}
       {showUploadSimModal && (
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-40">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-zinc-900 border dark:border-zinc-800">
-            <h4 className="text-sm font-bold text-gray-900 dark:text-zinc-100 flex items-center gap-1.5 mb-2">
-              <Share2 className="h-4 w-4 text-emerald-600" />
-              Simulate {showUploadSimModal === 'image' ? 'Image File' : 'Document File'} Upload
-            </h4>
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              To mock database storage, paste any visual hosting URL or select a preset option below.
-            </p>
-            
-            <input
-              type="text"
-              placeholder={showUploadSimModal === 'image' ? 'Paste JPEG URL...' : 'Paste PDF URL...'}
-              value={simUploadUrl}
-              onChange={(e) => setSimUploadUrl(e.target.value)}
-              className="w-full rounded-xl bg-gray-50 dark:bg-zinc-950 py-2.5 px-3 text-xs border border-gray-100 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-3"
-            />
-
-            {/* Quick preset chips */}
-            <div className="mb-4 flex flex-wrap gap-2">
-              {showUploadSimModal === 'image' ? (
-                <>
-                  <button
-                    onClick={() => setSimUploadUrl('https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&q=80&w=400')}
-                    className="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-700 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    Unsplash Template
-                  </button>
-                  <button
-                    onClick={() => setSimUploadUrl('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80&w=400')}
-                    className="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-700 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    Gradient Artwork
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setSimUploadUrl('https://sugora.com/downloads/pan-verification.pdf')}
-                    className="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-700 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    scanned_pan_card.pdf
-                  </button>
-                  <button
-                    onClick={() => setSimUploadUrl('https://sugora.com/downloads/aadhaar-kyc.pdf')}
-                    className="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-700 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    aadhaar_card_scanned.pdf
-                  </button>
-                </>
-              )}
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-105 max-w-sm w-full p-6 space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b">
+              <span className="font-extrabold text-xs uppercase tracking-wider text-slate-800">
+                Simulated {showUploadSimModal === 'image' ? 'Image Image file' : 'Document File'} Upload
+              </span>
+              <button onClick={() => setShowUploadSimModal(null)} className="text-slate-400 font-bold hover:text-slate-800 text-sm">✕</button>
             </div>
 
-            <div className="flex items-center gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowUploadSimModal(null);
-                  setSimUploadUrl('');
-                }}
-                className="rounded-xl px-3 py-2 text-xs text-gray-500"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeSimulatedUpload}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs text-white font-semibold hover:bg-emerald-700"
-              >
-                Attach file
-              </button>
+            <div className="space-y-3.5 text-xs font-semibold text-slate-505">
+              <label className="block text-[9px] uppercase font-bold text-slate-400">Simulation link address / URL</label>
+              <input
+                type="text"
+                placeholder={showUploadSimModal === 'image' ? 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300' : 'https://sugora.com/files/growth-blueprint.pdf'}
+                value={simUploadUrl}
+                onChange={(e) => setSimUploadUrl(e.target.value)}
+                className="w-full rounded-xl bg-slate-50 border p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="text-[10px] text-slate-400 italic">This simulates immediate full-stack S3/Supabase Storage integrations.</p>
+            </div>
+
+            <div className="flex justify-end gap-2 text-xs font-bold pt-2">
+              <button onClick={() => setShowUploadSimModal(null)} className="px-3.5 py-2 border rounded-xl hover:bg-slate-50 text-slate-500 font-black">Cancel</button>
+              <button onClick={executeSimulatedUpload} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-[#FFFFFF] font-black shadow-sm">Simulate Upload</button>
             </div>
           </div>
         </div>
