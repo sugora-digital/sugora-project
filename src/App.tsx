@@ -378,8 +378,11 @@ export default function App() {
 
   // Google OAuth Auto Onboarding simulation
   const handleGoogleSignInMock = () => {
+    const randomSuffix = Math.floor(Math.random() * 1000000);
     setNameInput('Alex Rivera');
-    setUsernameInput('alex_google_oauth');
+    setUsernameInput(`alex_google_oauth_${randomSuffix}`);
+    setEmailInput(`alex.rivera.${randomSuffix}@google-sim.sugora.com`);
+    setPasswordInput(`GoogleAuth_${randomSuffix}`);
     setAvatarInput('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150');
     setRoleInput('user');
     setSignUpStep(2);
