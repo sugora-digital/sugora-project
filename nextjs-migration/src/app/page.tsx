@@ -38,6 +38,31 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
+  // Embedded light state-based SPA router
+  const [currentPath, setCurrentPath] = useState<string>('/');
+  const [roleInput, setRoleInput] = useState<'user' | 'support' | 'admin'>('user');
+
+  const navigateTo = (path: string) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+    }
+    setCurrentPath(path);
+    setAuthError('');
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentPath(window.location.pathname);
+      const handleLocationChange = () => {
+        setCurrentPath(window.location.pathname);
+      };
+      window.addEventListener('popstate', handleLocationChange);
+      return () => {
+        window.removeEventListener('popstate', handleLocationChange);
+      };
+    }
+  }, []);
+
   // Authentication State
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -49,6 +74,118 @@ export default function Home() {
   const [authError, setAuthError] = useState<string>('');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [isSupabaseActive, setIsSupabaseActive] = useState<boolean>(false);
+
+  // Set default panel / activeTab on user profile load based on user role
+  useEffect(() => {
+    if (profile) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+        navigateTo('/');
+      }
+      if (profile.role === 'admin') {
+        setActiveTab('admin');
+      } else if (profile.role === 'support') {
+        setActiveTab('support');
+      } else {
+        setActiveTab('dashboard');
+      }
+    }
+  }, [profile]);
+
+  // Quick Sign In helper (similar to App.tsx)
+  const handleQuickSignIn = async (role: 'user' | 'support' | 'admin') => {
+    setIsAuthLoading(true);
+    setAuthError('');
+    
+    const mockEmail = `${role}@sugora.com`;
+    setEmailInput(mockEmail);
+    setPasswordInput('password123');
+
+    try {
+      const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
+      
+      if (!isPlaceholder) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: mockEmail,
+            password: 'password123'
+          });
+          if (error) {
+            // Register on the fly
+            const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+              email: mockEmail,
+              password: 'password123',
+              options: {
+                data: {
+                  name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+                  username: `${role}_tester`,
+                  avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+                }
+              }
+            });
+            if (signUpErr) throw signUpErr;
+            if (signUpData.user) {
+              const newProfile: Profile = {
+                id: signUpData.user.id,
+                email: mockEmail,
+                name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+                username: `${role}_tester`,
+                role: role,
+                avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+                created_at: new Date().toISOString(),
+                is_verified: true
+              };
+              setProfile(newProfile);
+            }
+          } else if (data.user) {
+            const { data: dbProfile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+            if (dbProfile) {
+              const updatedProfile = { ...(dbProfile as Profile), role };
+              setProfile(updatedProfile);
+            } else {
+              const newProfile: Profile = {
+                id: data.user.id,
+                email: mockEmail,
+                name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+                username: `${role}_tester`,
+                role: role,
+                avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+                created_at: new Date().toISOString(),
+                is_verified: true
+              };
+              setProfile(newProfile);
+            }
+          }
+        } catch (err: any) {
+          setProfile({
+            id: `san-${role}-${Date.now()}`,
+            email: mockEmail,
+            name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+            username: `${role}_tester`,
+            role: role,
+            avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+            created_at: new Date().toISOString(),
+            is_verified: true
+          });
+        }
+      } else {
+        const fallbackId = `demo-${role}-${Date.now()}`;
+        setProfile({
+          id: fallbackId,
+          email: mockEmail,
+          name: role === 'admin' ? 'Owner Admin' : role === 'support' ? 'Agent Sarah' : 'Demo User',
+          username: `${role}_tester`,
+          role: role,
+          avatar_url: role === 'support' ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
+          created_at: new Date().toISOString(),
+          is_verified: true
+        });
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Quick login failed.');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
 
   // Global Interactive Database States
   const [usersList, setUsersList] = useState<Profile[]>(INITIAL_MOCK_USERS);
@@ -161,7 +298,7 @@ export default function Home() {
     setActiveTab('dashboard');
   };
 
-  const handleSignInSubmit = async (e: React.FormEvent) => {
+  const handleSignInSubmit = async (e: React.FormEvent, forcedRole?: 'user' | 'support' | 'admin') => {
     e.preventDefault();
     if (!emailInput.trim() || !passwordInput.trim()) {
       setAuthError('Please fill in both email and password.');
@@ -169,6 +306,9 @@ export default function Home() {
     }
     setIsAuthLoading(true);
     setAuthError('');
+
+    // If a forced role is not passed, determine based on currentPath (client router state)
+    const resolvedRole = forcedRole || (currentPath === '/admin-signin' ? 'admin' : currentPath === '/supportdesk-signin' ? 'support' : 'user');
 
     try {
       const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
@@ -183,7 +323,7 @@ export default function Home() {
           name: emailInput.split('@')[0],
           username: emailInput.split('@')[0].replace(/[^a-z0-9]/g, ''),
           avatar_url: avatarInput,
-          role: emailInput.trim().toLowerCase() === 'ceo.sugora@gmail.com' ? 'admin' : 'user',
+          role: resolvedRole,
           created_at: new Date().toISOString(),
           is_verified: true
         };
@@ -217,13 +357,15 @@ export default function Home() {
           name: authData.user.user_metadata?.full_name || 'Sugora User',
           username: authData.user.user_metadata?.username || 'user' + Date.now().toString().slice(-4),
           avatar_url: authData.user.user_metadata?.avatar_url || avatarInput,
-          role: 'user',
+          role: resolvedRole,
           created_at: new Date().toISOString(),
           is_verified: true
         };
         setProfile(fallbackProfile);
       } else {
-        setProfile(profileData);
+        // Force the role to matched resolved path role to ensure login to specific panel
+        const updatedProfile = { ...(profileData as Profile), role: resolvedRole };
+        setProfile(updatedProfile);
       }
 
       setIsSupabaseActive(true);
@@ -531,182 +673,322 @@ export default function Home() {
     <div className="min-h-screen bg-[#fafbfc] text-[#1a1f26] dark:bg-[#06080a] dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       
       {!profile ? (
-        <div id="auth-onboarding-screen" className="fixed inset-0 bg-gray-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900/95 dark:border dark:border-zinc-800 p-6 shadow-2xl space-y-6 relative">
-            
-            {/* Absolute Theme Switcher for Login screen */}
-            <button
-              type="button"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-gray-100 dark:bg-zinc-800 text-gray-550 dark:text-zinc-400 hover:text-emerald-500 dark:hover:text-amber-400 transition-all border border-gray-200/50 dark:border-zinc-700/50 cursor-pointer hover:scale-105 active:scale-95"
-              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {isDarkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-750 dark:text-zinc-300" />}
-            </button>
+        <div className="min-h-screen bg-white text-[#1a1f26] flex flex-col justify-center items-center p-4 sm:p-8 relative selection:bg-indigo-100 overflow-y-auto w-full">
+          {/* Subtle elegant colorful background gradient blobbies */}
+          <div className="absolute top-10 left-10 w-48 sm:w-80 h-48 sm:h-80 bg-indigo-200/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-10 right-10 w-48 sm:w-80 h-48 sm:h-80 bg-rose-200/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-1/3 right-1/4 w-36 sm:w-60 h-36 sm:h-60 bg-emerald-200/10 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Header / Brand identity */}
-            <div className="text-center flex flex-col items-center">
-              <div className="mb-2">
-                <SugoraLogo className="h-10" />
-              </div>
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 font-medium italic">Turn Time Into Value</p>
-              
-              {/* Connection Status Indicator */}
-              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] tracking-wider font-extrabold uppercase bg-emerald-50 text-emerald-850 dark:bg-emerald-950/30 dark:text-emerald-300">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                </span>
-                {process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') 
-                  ? 'Supabase Cloud Active' 
-                  : 'Developer Sandbox Engine'}
-              </div>
-            </div>
-
-            {/* Auth mode toggle pill */}
-            <div className="flex bg-gray-100 dark:bg-zinc-950 p-1 rounded-2xl border border-gray-200/40 dark:border-zinc-800">
-              <button 
-                type="button"
-                onClick={() => { setAuthMode('signin'); setAuthError(''); }}
-                className={`flex-1 text-center py-2 text-xs font-bold rounded-xl transition-all duration-150 ${authMode === 'signin' ? 'bg-white dark:bg-zinc-800 text-emerald-750 dark:text-emerald-400 shadow-sm' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800'}`}
-              >
-                Sign In
-              </button>
-              <button 
-                type="button"
-                onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                className={`flex-1 text-center py-2 text-xs font-bold rounded-xl transition-all duration-155 ${authMode === 'signup' ? 'bg-white dark:bg-zinc-800 text-emerald-750 dark:text-emerald-400 shadow-sm' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800'}`}
-              >
-                Sign Up
-              </button>
-            </div>
-
-            {/* Feedback notifications */}
-            {authError && (
-              <div className="rounded-xl border border-rose-100 bg-rose-50/80 p-3.5 text-xs text-rose-700 dark:border-rose-950/20 dark:bg-rose-950/15 dark:text-rose-450 font-medium">
-                ⚠️ {authError}
-              </div>
-            )}
-
-            {/* Auth forms */}
-            <form onSubmit={authMode === 'signin' ? handleSignInSubmit : handleSignUpSubmit} className="space-y-4">
-              
-              {authMode === 'signup' && (
-                <>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-gray-400 dark:text-zinc-500 font-bold mb-1.5">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. John Doe"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-850 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-zinc-100 animate-fade-in"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-gray-400 dark:text-zinc-500 font-bold mb-1.5">Sugora Username (Unique)</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-3 text-xs font-mono text-gray-400">sugora.com/u/</span>
-                      <input
-                        type="text"
-                        required
-                        placeholder="username"
-                        value={usernameInput}
-                        onChange={(e) => setUsernameInput(e.target.value)}
-                        className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-850 pl-[92px] pr-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-zinc-100 animate-fade-in"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-gray-400 dark:text-zinc-500 font-bold mb-1.5">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. user@sugora.com"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-850 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-zinc-100"
-                />
+          {currentPath === '/admin-signin' ? (
+            /* OWNER TERMINAL LOGIN SCREEN */
+            <div id="admin-signin-gate" className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-6 relative z-10 animate-fade-in">
+              <div className="text-center flex flex-col items-center">
+                <div className="mb-2">
+                  <SugoraLogo className="h-10" />
+                </div>
+                <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase font-sans mt-2">Owner Admin Terminal</h2>
+                <p className="text-[10px] text-slate-450 uppercase tracking-widest font-bold font-sans mt-0.5">Corporate Access Only</p>
               </div>
 
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-gray-400 dark:text-zinc-500 font-bold mb-1.5">Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-850 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-zinc-100"
-                />
-              </div>
-
-              {authMode === 'signup' && (
-                <div className="animate-fade-in">
-                  <label className="block text-[10px] uppercase tracking-widest text-gray-400 dark:text-zinc-500 font-bold mb-2 text-center">Select Profile Photo</label>
-                  <div className="flex justify-center gap-4 mb-3">
-                    {[
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150', 
-                      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150',
-                      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150'
-                    ].map(img => (
-                      <button
-                        type="button"
-                        key={img}
-                        onClick={() => setAvatarInput(img)}
-                        className={`rounded-full p-0.5 border-2 transition ${
-                          avatarInput === img ? 'border-emerald-600 dark:border-emerald-500 scale-105' : 'border-transparent opacity-60'
-                        }`}
-                      >
-                        <img referrerPolicy="no-referrer" src={img} alt="avatar option" className="h-10 w-10 rounded-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Or paste custom image URL..."
-                    value={avatarInput}
-                    onChange={(e) => setAvatarInput(e.target.value)}
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 px-4 py-2.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-zinc-100"
-                  />
+              {authError && (
+                <div className="rounded-xl border border-rose-100 bg-rose-50/80 p-3.5 text-xs text-rose-700 font-medium">
+                  ⚠️ {authError}
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={isAuthLoading}
-                className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-semibold text-white tracking-wide active:scale-95 transition disabled:opacity-50 cursor-pointer shadow-md shadow-emerald-500/10"
-              >
-                {isAuthLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-3.5 w-3.5 border-2 border-white/35 border-t-white rounded-full animate-spin"></span>
-                    Authenticating...
-                  </span>
-                ) : (
-                  authMode === 'signin' ? 'Sign In to Sugora Studio' : 'Create Sugora Account & Claim ₹100'
-                )}
-              </button>
-            </form>
+              <form onSubmit={(e) => handleSignInSubmit(e, 'admin')} className="space-y-4 font-sans">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Admin Email ID</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="ceo.sugora@gmail.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
+                  />
+                </div>
 
-            <div className="text-center pt-2">
-              <p className="text-[10px] text-gray-400">
-                {authMode === 'signin' ? 'New here?' : 'Already have an account?'} {' '}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Secure Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={isAuthLoading}
+                    className="w-full rounded-2xl bg-slate-900 border border-slate-900 text-white hover:bg-black py-3 text-xs font-bold transition active:scale-95 cursor-pointer shadow-md"
+                  >
+                    Verify & Open Terminal
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSignIn('admin')}
+                    className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:opacity-95 text-white py-3 text-xs font-bold transition active:scale-95 cursor-pointer shadow-md text-center"
+                  >
+                     ⚡ Direct CEO Desk Access
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('/')}
+                    className="w-full rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 py-2 text-[10px] font-bold transition text-center cursor-pointer border border-slate-200"
+                  >
+                    ← Back to General Entrance
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : currentPath === '/supportdesk-signin' ? (
+            /* SUPPORT DECK LOGIN SCREEN */
+            <div id="support-signin-gate" className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-6 relative z-10 animate-fade-in">
+              <div className="text-center flex flex-col items-center">
+                <div className="mb-2">
+                  <SugoraLogo className="h-10" />
+                </div>
+                <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase font-sans mt-2">Support Desk Console</h2>
+                <p className="text-[10px] text-slate-450 uppercase tracking-widest font-bold font-sans mt-0.5">Staff Communication Portal</p>
+              </div>
+
+              {authError && (
+                <div className="rounded-xl border border-rose-100 bg-rose-50/80 p-3.5 text-xs text-rose-700 font-medium">
+                  ⚠️ {authError}
+                </div>
+              )}
+
+              <form onSubmit={(e) => handleSignInSubmit(e, 'support')} className="space-y-4 font-sans">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Registered Support Email</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="support@sugora.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Employee Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={isAuthLoading}
+                    className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white py-3 text-xs font-semibold tracking-wide active:scale-95 transition disabled:opacity-50 cursor-pointer shadow-md hover:shadow-indigo-100"
+                  >
+                    Access Agent Console
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSignIn('support')}
+                    className="w-full rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white py-3 text-xs font-semibold transition active:scale-95 cursor-pointer shadow-md text-center"
+                  >
+                     ⚡ Direct Support Desk Access
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('/')}
+                    className="w-full rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 py-2 text-[10px] font-bold transition text-center cursor-pointer border border-slate-200"
+                  >
+                    ← Back to General Entrance
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            /* STANDARD CLIENT ONBOARDING */
+            <div id="general-signin-gate" className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-[0_20px_50px_rgba(79,70,229,0.06)] hover:shadow-[0_25px_60px_rgba(79,70,229,0.1)] transition-all duration-300 space-y-6 relative z-10 animate-fade-in">
+              
+              <div className="text-center flex flex-col items-center">
+                <div className="mb-3 transition-transform hover:scale-102">
+                  <SugoraLogo className="h-11" />
+                </div>
+                <p className="text-xs text-slate-450 font-sans tracking-wide font-medium">Turn Time Into Value</p>
+
+                {/* Connection Status Indicator */}
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] tracking-wider font-extrabold uppercase bg-indigo-50 text-indigo-750 border border-indigo-100/30">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  {process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') 
+                    ? 'Cloud Active Mode' 
+                    : 'Sandbox Engine Active'}
+                </div>
+              </div>
+
+              {/* Mode Selection */}
+              <div className="flex bg-slate-100/85 p-1.5 rounded-2xl border border-slate-200/50">
                 <button 
                   type="button"
-                  onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(''); }}
-                  className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline hover:cursor-pointer"
+                  onClick={() => { setAuthMode('signin'); setAuthError(''); }}
+                  className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${authMode === 'signin' ? 'bg-white text-indigo-650 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  {authMode === 'signin' ? 'Register Account' : 'Login Securely'}
+                  Sign In
                 </button>
-              </p>
-            </div>
+                <button 
+                  type="button"
+                  onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                  className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all duration-155 cursor-pointer ${authMode === 'signup' ? 'bg-white text-indigo-650 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  Sign Up
+                </button>
+              </div>
 
-          </div>
+              {authError && (
+                <div className="rounded-xl border border-rose-100 bg-rose-50/80 p-3.5 text-xs text-rose-700 font-medium">
+                  ⚠️ {authError}
+                </div>
+              )}
+
+              <form onSubmit={authMode === 'signin' ? (e) => handleSignInSubmit(e, 'user') : handleSignUpSubmit} className="space-y-4 font-sans">
+                {authMode === 'signup' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Full Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. John Doe"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Sugora Username</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-3.5 text-xs font-mono text-slate-400">sugora.com/u/</span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="username"
+                          value={usernameInput}
+                          onChange={(e) => setUsernameInput(e.target.value)}
+                          className="w-full rounded-2xl bg-slate-50 border border-slate-200 pl-[94px] pr-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800 transition"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. user@sugora.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800 transition"
+                  />
+                </div>
+
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 text-center">Select Profile Photo</label>
+                    <div className="flex justify-center gap-4 mb-3">
+                      {[
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150', 
+                        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150',
+                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150'
+                      ].map(img => (
+                        <button
+                          type="button"
+                          key={img}
+                          onClick={() => setAvatarInput(img)}
+                          className={`rounded-full p-0.5 border-2 transition ${
+                            avatarInput === img ? 'border-indigo-650 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <img referrerPolicy="no-referrer" src={img} alt="avatar option" className="h-10 w-10 rounded-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Or paste custom image URL..."
+                      value={avatarInput}
+                      onChange={(e) => setAvatarInput(e.target.value)}
+                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800"
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isAuthLoading}
+                  className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-100 py-3 text-xs font-semibold text-white tracking-wide active:scale-95 transition disabled:opacity-50 cursor-pointer shadow-md"
+                >
+                  {isAuthLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-3.5 w-3.5 border-2 border-white/35 border-t-white rounded-full animate-spin"></span>
+                      Authenticating...
+                    </span>
+                  ) : (
+                    authMode === 'signin' ? 'Sign In to Client Portal' : 'Create Sugora Account & Claim ₹100'
+                  )}
+                </button>
+              </form>
+
+              {/* Authorized Personnel gateways */}
+              <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col items-center gap-2.5 text-center">
+                <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">🔒 Authorized Personnel Gateway</span>
+                <div className="flex gap-2.5 justify-center w-full">
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('/admin-signin')}
+                    className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-indigo-650 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-205 hover:border-indigo-200 transition-all cursor-pointer text-center"
+                  >
+                    👑 Admin Terminal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('/supportdesk-signin')}
+                    className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-purple-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border border-slate-205 hover:border-purple-200 transition-all cursor-pointer text-center"
+                  >
+                    🎫 Support Desk
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       ) : (
         /* CORE ACTIVE CHASSIS LAYOUT */

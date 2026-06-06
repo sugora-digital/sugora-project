@@ -81,6 +81,26 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string>('');
 
+  // Embedded light state-based SPA router
+  const [currentPath, setCurrentPath] = useState<string>(window.location.pathname);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+    setAuthErrorMessage('');
+    setUsernameError('');
+  };
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+    };
+  }, []);
+
   // Global Interactive Database States
   const [usersList, setUsersList] = useState<Profile[]>(INITIAL_MOCK_USERS);
   const [productsList, setProductsList] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -291,6 +311,9 @@ export default function App() {
   // Set default panel / activeTab on user profile load based on user role
   useEffect(() => {
     if (profile) {
+      if (window.location.pathname !== '/') {
+        navigateTo('/');
+      }
       if (profile.role === 'admin') {
         setActiveTab('admin');
       } else if (profile.role === 'support') {
@@ -528,7 +551,11 @@ export default function App() {
             }
           }
         } catch (err: any) {
-          console.error('[Quick Link Active DB Fallback]:', err);
+          if (err?.message?.includes('confirmation email')) {
+            console.warn('[Quick Link Active DB Fallback Notice]: Sync inactive or requires email confirmation. Using instant local profile verification.');
+          } else {
+            console.warn('[Quick Link Active DB Fallback Notice]:', err?.message || err);
+          }
           setProfile({
             id: `san-${role}-${Date.now()}`,
             email: mockEmail,
@@ -782,301 +809,519 @@ export default function App() {
       
       {/* ONBOARDING DIALOG POPUP: Force user setup */}
       {!profile ? (
-        <div className="fixed inset-0 bg-[#0c0e12]/60 dark:bg-[#06080b]/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="w-full max-w-md my-auto rounded-3xl bg-white dark:bg-zinc-900 dark:border dark:border-zinc-800 p-6 sm:p-8 shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto">
+        <div className="min-h-screen bg-white text-[#1a1f26] flex flex-col justify-center items-center p-4 sm:p-8 relative selection:bg-indigo-100 overflow-y-auto">
+          {/* Subtle elegant colorful background gradient blobbies */}
+          <div className="absolute top-10 left-10 w-48 sm:w-80 h-48 sm:h-80 bg-indigo-200/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-10 right-10 w-48 sm:w-80 h-48 sm:h-80 bg-rose-200/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-1/3 right-1/4 w-36 sm:w-60 h-36 sm:h-60 bg-emerald-200/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Core App Wrapper */}
+          <div className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-[0_20px_50px_rgba(79,70,229,0.06)] hover:shadow-[0_25px_60px_rgba(79,70,229,0.1)] transition-all duration-300 space-y-6 relative z-10">
             
             <div className="text-center flex flex-col items-center">
-              <div className="mb-4">
-                <SugoraLogo className="h-10" />
+              <div className="mb-3 transition-transform hover:scale-102">
+                <SugoraLogo className="h-11" />
               </div>
-              <h2 className="text-base font-bold tracking-tight text-gray-500 dark:text-zinc-400">Interactive Creator Platform</h2>
-              <p className="text-xs text-gray-400 mt-1">Setup your credentials to enter the interactive platform</p>
+              
+              {currentPath === '/admin-signin' ? (
+                <>
+                  <h2 className="text-base font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 uppercase">
+                    Sugora Owner Terminal
+                  </h2>
+                  <p className="text-[11px] text-slate-400 mt-1 font-medium max-w-xs">
+                    Secure gateway for revenue controls, global parameters, and wallet validations.
+                  </p>
+                </>
+              ) : currentPath === '/supportdesk-signin' ? (
+                <>
+                  <h2 className="text-base font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-indigo-600 uppercase">
+                    Support Desk Console
+                  </h2>
+                  <p className="text-[11px] text-slate-400 mt-1 font-medium max-w-xs">
+                    Customer complaints terminal, resolution systems, and wallet corrections.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-base font-extrabold tracking-tight text-slate-600 uppercase">
+                    Creator Studio Portal
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1 font-medium">
+                    Configure your link templates & UPI wallet payout credentials
+                  </p>
+                </>
+              )}
             </div>
 
-            {/* Stepper display (Hidden if in SignIn Mode to avoid confusion) */}
-            {(!isSupabaseConfigured() || !isSignInMode) && (
-              <div className="flex justify-center gap-2.5">
-                {[1, 2, 3].map(st => (
-                  <div key={st} className="flex items-center gap-1.5">
-                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                      signUpStep === st 
-                        ? 'bg-emerald-600 text-white' 
-                        : signUpStep > st 
-                        ? 'bg-emerald-100 text-emerald-800' 
-                        : 'bg-gray-105 text-gray-400 bg-gray-100 dark:bg-zinc-800'
-                    }`}>
-                      {st}
-                    </div>
-                    {st < 3 && <div className="h-0.5 w-6 bg-gray-100 dark:bg-zinc-850" />}
+            {/* Path 1: ADMIN SIGN IN ROUTE */}
+            {currentPath === '/admin-signin' && (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5 font-sans">
+                      Administrator Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. admin@sugora.com"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800 transition-all duration-150"
+                    />
                   </div>
-                ))}
+
+                  <div>
+                    <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5 font-sans">
+                      Security Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter security key"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800 transition-all duration-150"
+                    />
+                  </div>
+                </div>
+
+                {authErrorMessage && (
+                  <p className="text-[10px] font-bold text-rose-600 text-center">{authErrorMessage}</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setRoleInput('admin');
+                    setIsSignInMode(true);
+                    setTimeout(() => {
+                      handleOnboardingNextStep();
+                    }, 50);
+                  }}
+                  disabled={isAuthLoading || !emailInput || passwordInput.length < 6}
+                  className="w-full rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 hover:from-indigo-700 hover:to-rose-700 hover:shadow-lg hover:shadow-indigo-100 py-3 px-4 text-xs font-bold text-white active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isAuthLoading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                  Verify & Open Terminal
+                </button>
+
+                <div className="flex items-center gap-2 text-[9px] text-slate-300 font-extrabold uppercase py-1 select-none">
+                  <div className="h-0.5 flex-grow bg-slate-100" />
+                  <span>Interactive Quick Access</span>
+                  <div className="h-0.5 flex-grow bg-slate-100" />
+                </div>
+
+                {/* Excellent, colorful dynamic hover for Quick Access */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleQuickSignIn('admin');
+                  }}
+                  className="w-full relative py-3.5 px-4 rounded-2xl bg-gradient-to-br from-rose-50 via-white to-orange-50/40 hover:from-rose-100/60 hover:to-orange-100/40 border border-rose-100 hover:border-rose-300 text-rose-850 hover:text-rose-900 text-xs font-bold transition-all duration-200 cursor-pointer active:scale-98 shadow-sm flex flex-col items-center justify-center gap-1 group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-wider text-rose-600 font-extrabold group-hover:text-rose-700">
+                      Rapid Demo CEO Access
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-rose-500/80 font-mono">
+                    Skip credentials & mock CEO Alex session instantly
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateTo('/')}
+                  className="w-full py-2.5 text-center text-xs font-bold text-slate-400 hover:text-slate-600 hover:translate-x-[-2px] transition-all cursor-pointer flex items-center justify-center gap-1"
+                >
+                  ← Back to Creator Hub
+                </button>
               </div>
             )}
 
-            {/* Step 1: Input Name and unique username (and Email/Password if Supabase active) */}
-            {signUpStep === 1 && (
-              <div className="space-y-4 w-full">
-                {/* 1. Google OAuth Signup option */}
-                <button
-                  type="button"
-                  onClick={handleGoogleSignInMock}
-                  className="w-full py-3 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center gap-2.5 text-xs font-bold transition shadow-xs cursor-pointer active:scale-98"
-                >
-                  <img src="https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&q=80&w=35" className="h-4.5 w-4.5 object-contain" alt="Google logo icon" />
-                  Continue with Google OAuth
-                </button>
+            {/* Path 2: SUPPORT DESK SIGN IN ROUTE */}
+            {currentPath === '/supportdesk-signin' && (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5 font-sans">
+                      Agent Work Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. support@sugora.com"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-teal-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 font-medium text-slate-800 transition-all duration-150"
+                    />
+                  </div>
 
-                <div className="flex items-center gap-2 text-[9px] text-slate-400 font-extrabold uppercase py-1 select-none">
-                  <div className="h-0.5 flex-grow bg-slate-105" />
-                  <span>OR Sign In with Panel Credentials</span>
-                  <div className="h-0.5 flex-grow bg-slate-105" />
+                  <div>
+                    <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5 font-sans">
+                      Agent Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter security key"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-teal-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 font-medium text-slate-800 transition-all duration-150"
+                    />
+                  </div>
                 </div>
 
-                {isSupabaseConfigured() && (
-                  <div className="flex justify-center border-b border-slate-100 pb-2 mb-2 gap-4">
-                    <button
-                      onClick={() => {
-                        setIsSignInMode(false);
-                        setAuthErrorMessage('');
-                      }}
-                      className={`pb-1 text-xs font-bold transition-all cursor-pointer ${
-                        !isSignInMode 
-                          ? 'text-indigo-600 border-b-2 border-indigo-600' 
-                          : 'text-slate-400 hover:text-slate-650'
-                      }`}
-                    >
-                      Create Account
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSignInMode(true);
-                        setAuthErrorMessage('');
-                      }}
-                      className={`pb-1 text-xs font-bold transition-all cursor-pointer ${
-                        isSignInMode 
-                          ? 'text-indigo-600 border-b-2 border-indigo-600' 
-                          : 'text-slate-400 hover:text-slate-650'
-                      }`}
-                    >
-                      Sign In
-                    </button>
+                {authErrorMessage && (
+                  <p className="text-[10px] font-bold text-rose-600 text-center">{authErrorMessage}</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setRoleInput('support');
+                    setIsSignInMode(true);
+                    setTimeout(() => {
+                      handleOnboardingNextStep();
+                    }, 50);
+                  }}
+                  disabled={isAuthLoading || !emailInput || passwordInput.length < 6}
+                  className="w-full rounded-2xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-teal-100 py-3 px-4 text-xs font-bold text-white active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isAuthLoading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                  Identify & Open Console
+                </button>
+
+                <div className="flex items-center gap-2 text-[9px] text-slate-300 font-extrabold uppercase py-1 select-none">
+                  <div className="h-0.5 flex-grow bg-slate-100" />
+                  <span>Interactive Quick Access</span>
+                  <div className="h-0.5 flex-grow bg-slate-100" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleQuickSignIn('support');
+                  }}
+                  className="w-full relative py-3.5 px-4 rounded-2xl bg-gradient-to-br from-teal-50 via-white to-sky-50/40 hover:from-teal-100/60 hover:to-sky-100/40 border border-teal-100 hover:border-teal-300 text-teal-850 hover:text-teal-900 text-xs font-bold transition-all duration-200 cursor-pointer active:scale-98 shadow-sm flex flex-col items-center justify-center gap-1 group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-teal-500 animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-wider text-teal-600 font-extrabold group-hover:text-teal-700">
+                      Rapid Support Staff Access
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-teal-500/80 font-mono">
+                    Skip credentials & mock Agent Sarah session instantly
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateTo('/')}
+                  className="w-full py-2.5 text-center text-xs font-bold text-slate-400 hover:text-slate-600 hover:translate-x-[-2px] transition-all cursor-pointer flex items-center justify-center gap-1"
+                >
+                  ← Back to Creator Hub
+                </button>
+              </div>
+            )}
+
+            {/* Path 3: STANDARD USER SIGN IN OR REGISTER ROUTES */}
+            {currentPath !== '/admin-signin' && currentPath !== '/supportdesk-signin' && (
+              <>
+                {/* Stepper display (Hidden if in SignIn Mode to avoid confusion) */}
+                {(!isSupabaseConfigured() || !isSignInMode) && (
+                  <div className="flex justify-center gap-2.5 pt-1">
+                    {[1, 2, 3].map(st => (
+                      <div key={st} className="flex items-center gap-1.5">
+                        <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          signUpStep === st 
+                            ? 'bg-emerald-600 text-white' 
+                            : signUpStep > st 
+                            ? 'bg-emerald-100 text-emerald-800' 
+                            : 'bg-slate-100 text-slate-400 border border-slate-205'
+                        }`}>
+                          {st}
+                        </div>
+                        {st < 3 && <div className="h-0.5 w-6 bg-slate-150" />}
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* If Registering, get Name & Username */}
-                {(!isSupabaseConfigured() || !isSignInMode) && (
-                  <>
-                    <div>
-                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Your Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Alex Rivera"
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Select Profile Username (Unique)</label>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-3.5 text-xs font-mono text-slate-405">sugora.com/u/</span>
-                        <input
-                          type="text"
-                          required
-                          placeholder="johndoe"
-                          value={usernameInput}
-                          onChange={(e) => setUsernameInput(e.target.value)}
-                          className="w-full rounded-2xl bg-slate-50 pl-[92px] pr-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800 font-mono"
-                        />
+                {/* Step 1: Input Name and unique username */}
+                {signUpStep === 1 && (
+                  <div className="space-y-4 w-full">
+                    
+                    {/* Choose between Create Account vs Sign In */}
+                    {isSupabaseConfigured() && (
+                      <div className="flex justify-center border-b border-slate-100 pb-2 mb-2 gap-6">
+                        <button
+                          onClick={() => {
+                            setIsSignInMode(false);
+                            setAuthErrorMessage('');
+                          }}
+                          className={`pb-1.5 text-xs font-bold transition-all cursor-pointer ${
+                            !isSignInMode 
+                              ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                              : 'text-slate-400 hover:text-slate-650'
+                          }`}
+                        >
+                          Create Account
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsSignInMode(true);
+                            setAuthErrorMessage('');
+                          }}
+                          className={`pb-1.5 text-xs font-bold transition-all cursor-pointer ${
+                            isSignInMode 
+                              ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                              : 'text-slate-400 hover:text-slate-650'
+                          }`}
+                        >
+                          Sign In
+                        </button>
                       </div>
-                      {usernameError && (
-                        <p className="text-[10px] font-bold text-rose-600 mt-1">{usernameError}</p>
-                      )}
-                    </div>
+                    )}
 
-                    {/* Choose Role / Panel Selector during signup */}
-                    <div>
-                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Select Account Panel / Role</label>
-                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-50 border rounded-xl">
-                        {[
-                          { id: 'user', label: 'User Hub' },
-                          { id: 'support', label: 'Support Desk' },
-                          { id: 'admin', label: 'Admin Panel' }
-                        ].map(roleOpt => (
+                    {/* 1. Google OAuth Signup option */}
+                    {!isSignInMode && (
+                      <button
+                        type="button"
+                        onClick={handleGoogleSignInMock}
+                        className="w-full py-3 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center gap-2.5 text-xs font-bold transition shadow-xs cursor-pointer active:scale-98"
+                      >
+                        <img src="https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&q=80&w=35" className="h-4.5 w-4.5 object-contain" alt="Google logo icon" />
+                        Continue with Google OAuth
+                      </button>
+                    )}
+
+                    {!isSignInMode && (
+                      <div className="flex items-center gap-2 text-[9px] text-slate-350 font-extrabold uppercase py-0.5 select-none">
+                        <div className="h-0.5 flex-grow bg-slate-100" />
+                        <span>OR SIGN UP BELOW</span>
+                        <div className="h-0.5 flex-grow bg-slate-100" />
+                      </div>
+                    )}
+
+                    {/* Name & Username Inputs */}
+                    {(!isSupabaseConfigured() || !isSignInMode) && (
+                      <>
+                        <div>
+                          <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                            Your Full Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Alex Rivera"
+                            value={nameInput}
+                            onChange={(e) => {
+                              setNameInput(e.target.value);
+                              setRoleInput('user'); // strictly enforce user role
+                            }}
+                            className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800 transition-all duration-150"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                            Select Profile Username (Unique)
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-3.5 text-xs font-mono text-slate-400">sugora.com/u/</span>
+                            <input
+                              type="text"
+                              required
+                              placeholder="johndoe"
+                              value={usernameInput}
+                              onChange={(e) => {
+                                setUsernameInput(e.target.value);
+                                setRoleInput('user'); // strictly enforce user role
+                              }}
+                              className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 hover:border-slate-300 pl-[92px] pr-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800 font-mono transition-all duration-150"
+                            />
+                          </div>
+                          {usernameError && (
+                            <p className="text-[10px] font-bold text-rose-600 mt-1">{usernameError}</p>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Email and Password inputs */}
+                    {isSupabaseConfigured() && (
+                      <>
+                        <div>
+                          <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                            Email Address
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            placeholder="e.g. alex@example.com"
+                            value={emailInput}
+                            onChange={(e) => {
+                              setEmailInput(e.target.value);
+                              setRoleInput('user'); // strictly enforce role
+                            }}
+                            className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800 transition-all duration-150"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                            Password
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            placeholder="Minimum 6 characters"
+                            value={passwordInput}
+                            onChange={(e) => {
+                              setPasswordInput(e.target.value);
+                              setRoleInput('user'); // strictly enforce role
+                            }}
+                            className="w-full rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 hover:border-slate-300 px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800 transition-all duration-150"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Standard creator direct simulation buttons when database is mock } */}
+                    {!isSupabaseConfigured() && (
+                      <div className="pt-2.5 border-t border-slate-100 space-y-2">
+                        <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono">⚡ Creator Sandboxed Entry</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoleInput('user');
+                            handleQuickSignIn('user');
+                          }}
+                          className="w-full py-2.5 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-bold border border-emerald-100 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                          Direct Sandbox Creator Entry
+                        </button>
+                      </div>
+                    )}
+
+                    {authErrorMessage && (
+                      <p className="text-[10px] font-bold text-rose-600 mt-1">{authErrorMessage}</p>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRoleInput('user');
+                        handleOnboardingNextStep();
+                      }}
+                      disabled={
+                        isAuthLoading ||
+                        (!isSignInMode && (!nameInput.trim() || !usernameInput.trim())) ||
+                        (isSupabaseConfigured() && (!emailInput.trim() || passwordInput.length < 6))
+                      }
+                      className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-100 py-3 text-xs font-semibold text-white active:scale-95 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    >
+                      {isAuthLoading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                      {isSignInMode ? 'Sign In to Creator Portal' : 'Continue Onboarding'}
+                    </button>
+
+                    {/* Custom Admin & Support Navigation Banner Under Card */}
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col items-center gap-2.5 text-center">
+                      <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">🔒 Authorized Personnel Gateway</span>
+                      <div className="flex gap-2.5 justify-center w-full">
+                        <button
+                          type="button"
+                          onClick={() => navigateTo('/admin-signin')}
+                          className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-indigo-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer text-center"
+                        >
+                          👑 Admin Terminal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigateTo('/supportdesk-signin')}
+                          className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-purple-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-200 transition-all cursor-pointer text-center"
+                        >
+                          🎫 Support Desk
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Avatar Photo Selection */}
+                {signUpStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3">Upload Profile Representation</label>
+                      <div className="flex justify-center gap-4 mb-4">
+                        {['https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150', 
+                          'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150',
+                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150'].map(img => (
                           <button
-                            key={roleOpt.id}
-                            type="button"
-                            onClick={() => setRoleInput(roleOpt.id as UserRole)}
-                            className={`py-1.5 rounded-lg text-[10px] font-bold text-center transition cursor-pointer ${
-                              roleInput === roleOpt.id
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800'
+                            key={img}
+                            onClick={() => setAvatarInput(img)}
+                            className={`rounded-full p-0.5 border-2 transition-all ${
+                              avatarInput === img ? 'border-emerald-600 scale-105' : 'border-transparent opacity-75 hover:opacity-100'
                             }`}
                           >
-                            {roleOpt.label}
+                            <img referrerPolicy="no-referrer" src={img} alt="avatar option" className="h-12 w-12 rounded-full object-cover" />
                           </button>
                         ))}
                       </div>
-                      <p className="text-[9px] text-slate-400 mt-1 leading-normal font-semibold">
-                        {roleInput === 'admin' && '👑 Owner dashboard with analytics control'}
-                        {roleInput === 'support' && '🎫 Customer complaints & resolution terminal'}
-                        {roleInput === 'user' && '🌲 Main Creator dashboard & bio templates'}
-                      </p>
-                    </div>
-                  </>
-                )}
 
-                {/* Live DB Email Credentials */}
-                {isSupabaseConfigured() && (
-                  <>
-                    <div>
-                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Email Address</label>
                       <input
-                        type="email"
-                        required
-                        placeholder="e.g. alex@example.com"
-                        value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
-                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800"
+                        type="text"
+                        placeholder="Or paste any custom Image URL..."
+                        value={avatarInput}
+                        onChange={(e) => setAvatarInput(e.target.value)}
+                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border border-slate-200 focus:border-indigo-500 hover:border-slate-300 text-slate-800 transition-all focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[9.5px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">Password</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="Minimum 6 characters"
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-xs border focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-800"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Preset sign-in buttons */}
-                {isSignInMode && (
-                  <div className="pt-2.5 border-t border-slate-100">
-                    <label className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-2 font-mono">⚡ Quick Demo Sign In Panels</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickSignIn('user')}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-105/30 text-center transition active:scale-95 cursor-pointer"
-                      >
-                        <span className="text-[10px] font-extrabold text-indigo-700">User Panel</span>
-                        <span className="text-[8px] text-indigo-501 opacity-85 font-mono">/dashboard</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickSignIn('support')}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50/50 hover:bg-purple-105 border border-purple-100/30 text-center transition active:scale-95 cursor-pointer"
-                      >
-                        <span className="text-[10px] font-extrabold text-purple-700 font-bold">Support Panel</span>
-                        <span className="text-[8px] text-purple-550 opacity-85 font-mono">/support-dash</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickSignIn('admin')}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50/50 hover:bg-rose-100/70 border border-rose-100/30 text-center transition active:scale-95 cursor-pointer"
-                      >
-                        <span className="text-[10px] font-extrabold text-rose-700 font-bold">Admin Panel</span>
-                        <span className="text-[8px] text-rose-551 opacity-85 font-mono">/analytics</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleOnboardingNextStep}
+                      className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-semibold text-white transition active:scale-95 cursor-pointer shadow-md"
+                    >
+                      Proceed to Setup Account
+                    </button>
                   </div>
                 )}
 
-                {authErrorMessage && (
-                  <p className="text-[10px] font-bold text-rose-600 mt-1">{authErrorMessage}</p>
-                )}
+                {/* Step 3: Complete Account Setup Notification */}
+                {signUpStep === 3 && (
+                  <div className="space-y-4 text-center">
+                    <div className="rounded-xl bg-slate-50 p-4 border border-slate-205 text-xs text-slate-500 space-y-1.5 font-medium leading-relaxed text-left">
+                      <p>✓ Name Registered: <span className="font-bold text-slate-800">{nameInput}</span></p>
+                      <p>✓ Profile URL: <span className="font-mono text-emerald-600 font-bold">sugora.com/u/{usernameInput}</span></p>
+                      <p>✓ Welcome Promotional Payout: <span className="font-bold text-emerald-600">₹100 active</span></p>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={handleOnboardingNextStep}
-                  disabled={
-                    isAuthLoading ||
-                    (!isSignInMode && (!nameInput.trim() || !usernameInput.trim())) ||
-                    (isSupabaseConfigured() && (!emailInput.trim() || passwordInput.length < 6))
-                  }
-                  className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3 text-xs font-semibold text-white active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  {isAuthLoading ? (
-                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : null}
-                  {isSignInMode ? 'Sign In' : 'Continue Onboarding'}
-                </button>
-              </div>
-            )}
+                    {authErrorMessage && (
+                      <p className="text-[10px] font-bold text-rose-600 mt-1">{authErrorMessage}</p>
+                    )}
 
-            {/* Step 2: Avatar Photo Selection */}
-            {signUpStep === 2 && (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Upload Profile Representation</label>
-                  <div className="flex justify-center gap-4 mb-4">
-                    {['https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150', 
-                      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150',
-                      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150'].map(img => (
-                      <button
-                        key={img}
-                        onClick={() => setAvatarInput(img)}
-                        className={`rounded-full p-0.5 border-2 ${
-                          avatarInput === img ? 'border-emerald-600' : 'border-transparent'
-                        }`}
-                      >
-                        <img referrerPolicy="no-referrer" src={img} alt="avatar option" className="h-12 w-12 rounded-full object-cover" />
-                      </button>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={handleCompleteSignUp}
+                      disabled={isAuthLoading}
+                      className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-bold text-white transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isAuthLoading ? (
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <ShieldCheck className="h-4.5 w-4.5" />
+                      )}
+                      Deploy Sugora Studio
+                    </button>
                   </div>
-
-                  <input
-                    type="text"
-                    placeholder="Or paste any custom Image URL..."
-                    value={avatarInput}
-                    onChange={(e) => setAvatarInput(e.target.value)}
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-zinc-950 px-4 py-3 text-xs border border-gray-150 dark:border-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <button
-                  onClick={handleOnboardingNextStep}
-                  className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-semibold text-white transition active:scale-95"
-                >
-                  Proceed to Setup Account
-                </button>
-              </div>
-            )}
-
-            {/* Step 3: Complete Account Setup Notification */}
-            {signUpStep === 3 && (
-              <div className="space-y-4 text-center">
-                <div className="rounded-xl bg-gray-50 dark:bg-zinc-950 p-4 border text-xs text-gray-500 space-y-1.5 font-medium leading-relaxed">
-                  <p>✓ Name Registered: <span className="font-bold text-gray-900 dark:text-zinc-200">{nameInput}</span></p>
-                  <p>✓ Profile URL: <span className="font-mono text-emerald-600 font-bold">sugora.com/u/{usernameInput}</span></p>
-                  <p>✓ Welcome Promotional Payout: <span className="font-bold text-emerald-600">₹100 active</span></p>
-                </div>
-
-                {authErrorMessage && (
-                  <p className="text-[10px] font-bold text-rose-600 mt-1">{authErrorMessage}</p>
                 )}
-
-                <button
-                  onClick={handleCompleteSignUp}
-                  disabled={isAuthLoading}
-                  className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-bold text-white transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  {isAuthLoading ? (
-                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <ShieldCheck className="h-4.5 w-4.5" />
-                  )}
-                  Deploy Sugora Studio
-                </button>
-              </div>
+              </>
             )}
 
           </div>
