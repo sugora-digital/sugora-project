@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   User,
   LogOut,
@@ -319,7 +320,7 @@ export default function App() {
       } else if (profile.role === 'support') {
         setActiveTab('support');
       } else {
-        setActiveTab('dashboard');
+        setActiveTab('ai');
       }
     }
   }, [profile]);
@@ -1330,169 +1331,173 @@ export default function App() {
 
         /* CORE ACTIVE CHASSIS LAYOUT */
         <>
-          {/* TOP ADMIN QUICK MULTI-ROLE SWITCHER BAR */}
-          <div className="bg-[#090b0e] text-zinc-100 py-2.5 px-6 flex flex-col md:flex-row items-center justify-between text-xs sticky top-0 z-30 border-b border-zinc-800/60 backdrop-blur-md">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-bold text-emerald-400 uppercase tracking-widest font-mono text-[9px]">HUD Switcher:</span>
-              <div className="flex gap-1.5">
-                {[
-                  { role: 'user', label: 'User Node' },
-                  { role: 'support', label: 'Support Desk (Sarah)' },
-                  { role: 'admin', label: 'System CEO (Alex)' }
-                ].map(r => (
-                  <button
-                    key={r.role}
-                    onClick={() => handleToggleRoleScope(r.role as any)}
-                    className={`rounded-lg px-3 py-1 text-[10px] font-bold transition-all duration-150 cursor-pointer ${
-                      profile.role === r.role
-                        ? 'bg-emerald-600/90 text-white shadow-sm ring-1 ring-emerald-500/20'
-                        : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 border border-zinc-800/80'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-1 md:mt-0 flex items-center gap-2 text-zinc-400 text-[10px] font-mono">
-              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Active Scope: <span className="font-bold text-emerald-400">@{profile.username}</span> • <span className="text-zinc-300 font-bold uppercase">{profile.role} account</span></span>
-            </div>
-          </div>
-
           {/* MASTER USER LANDSCAPE INTERFACE */}
-          <div className="flex-1 flex flex-col">
-            <header id="main-global-header" className="bg-white border-b border-zinc-200/50 px-6 py-3.5 dark:bg-[#0d0f12]/90 dark:border-zinc-800 flex items-center justify-between z-10 shrink-0">
-              <div className="cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-                <SugoraLogo className="h-9" />
+          <div className="flex-1 flex flex-col bg-white">
+            <header id="main-global-header" className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30 shrink-0">
+              <div className="cursor-pointer transition-transform hover:scale-101 flex items-center gap-2" onClick={() => setActiveTab('ai')}>
+                {websiteSettings.logo_url ? (
+                  <img referrerPolicy="no-referrer" src={websiteSettings.logo_url} alt={websiteSettings.site_name} className="h-8.5 w-auto max-w-[150px] object-contain" />
+                ) : (
+                  <SugoraLogo className="h-8.5" />
+                )}
               </div>
 
-              {/* Header Right togglers */}
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setIsDarkMode(!isDarkMode)}
-                  title="Toggle Visual Theme"
-                  className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-250/20 dark:border-zinc-700/30"
-                >
-                  {isDarkMode ? <Sun className="h-4.5 w-4.5 text-amber-500" /> : <Moon className="h-4.5 w-4.5 text-zinc-700" />}
-                </button>
+              {/* Header Right controllers */}
+              <div className="flex items-center gap-3.5">
+                {/* On Chat/AI views, we ONLY display the website logo and a three-line (hamburger) menu icon */}
+                {activeTab !== 'ai' && activeTab !== 'chat' ? (
+                  <>
+                    <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-100 rounded-2xl px-3 py-1.5">
+                      <img
+                        referrerPolicy="no-referrer"
+                        src={profile.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'}
+                        alt={profile.name}
+                        className="h-7 w-7 rounded-xl object-cover ring-2 ring-indigo-500/10"
+                      />
+                      <div className="hidden sm:block text-left">
+                        <span className="block text-[11px] font-bold text-slate-800 leading-tight">{profile.name}</span>
+                        <span className="block text-[8px] text-indigo-600 font-extrabold uppercase tracking-wider mt-0.5">{profile.role}</span>
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-2.5">
-                  <img
-                    referrerPolicy="no-referrer"
-                    src={profile.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'}
-                    alt={profile.name}
-                    className="h-8 w-8 rounded-full object-cover ring-2 ring-emerald-500/20"
-                  />
-                  <div className="hidden sm:block">
-                    <span className="block text-xs font-bold text-zinc-900 dark:text-zinc-200 leading-tight">{profile.name}</span>
-                    <span className="block text-[9px] text-zinc-400 leading-none capitalize font-medium">{profile.role} node</span>
-                  </div>
-                </div>
+                    <button
+                      onClick={handleLogOutSession}
+                      title="Sign Out / Disconnect Session"
+                      className="p-2 text-slate-400 hover:text-rose-600 transition rounded-xl bg-slate-50 border border-slate-100 hover:bg-rose-50 hover:border-rose-100 active:scale-95 cursor-pointer"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </button>
 
-                <button
-                  onClick={handleLogOutSession}
-                  title="Sign Out / Disconnect Session"
-                  className="p-2 text-zinc-400 hover:text-rose-600 transition rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-250/20 dark:border-zinc-700/30"
-                >
-                  <LogOut className="h-4.5 w-4.5" />
-                </button>
-
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-2 text-gray-600 rounded dark:text-zinc-300 hover:bg-gray-50"
-                >
-                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                </button>
+                    <button
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                      className="p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-50 transition active:scale-95"
+                      title="Toggle Menu"
+                    >
+                      {mobileMenuOpen ? <X className="h-5 w-5 text-indigo-600" /> : <Menu className="h-5 w-5" />}
+                    </button>
+                  </>
+                ) : (
+                  /* Only hamburger shown here as per client specifications */
+                  <button
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="p-2.5 text-slate-600 hover:text-slate-900 rounded-2xl bg-slate-50 hover:bg-indigo-50 transition active:scale-95 cursor-pointer flex items-center justify-center border border-slate-100"
+                    title="Toggle Workspace Menu"
+                  >
+                    {mobileMenuOpen ? <X className="h-5 w-5 text-indigo-600" /> : <Menu className="h-5 w-5" />}
+                  </button>
+                )}
               </div>
             </header>
 
-            <div className="flex-1 flex flex-col md:flex-row relative">
+            <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden bg-white">
               
-              {/* SIDEBAR NAVIGATION GRIDS */}
-              <nav className={`w-full md:w-64 shrink-0 bg-white border-r border-[#eceff1] dark:bg-[#0c0e12]/85 dark:border-zinc-800/80 p-4.5 space-y-1.5 z-20 ${
-                mobileMenuOpen ? 'absolute inset-x-0 top-0 bg-white dark:bg-[#12141a] h-fit border-b shadow-lg border-zinc-200 dark:border-zinc-800' : 'hidden md:block'
-              }`}>
-                <span className="block text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-widest px-3 mb-2.5">Workspace</span>
-                
-                {[
-                  { id: 'dashboard', label: 'General Dashboard', icon: LayoutDashboard },
-                  { id: 'tree', label: 'Sugora Tree Builder', icon: Share2 },
-                  { id: 'chat', label: 'WhatsApp Chat', icon: MessageSquare },
-                  { id: 'shop', label: 'Shop Marketplace', icon: ShoppingBag },
-                  { id: 'apps', label: 'Embedded Apps', icon: AppWindow },
-                  { id: 'ai', label: 'Copilot AI Chat', icon: Sparkles },
-                  { id: 'wallet', label: 'Wallet & KYC', icon: Wallet }
-                ].map((item) => {
-                  const IconComp = item.icon;
-                  const isSelected = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                        isSelected
-                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border-l-2 border-emerald-600'
-                          : 'text-zinc-650 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/30'
-                      }`}
-                    >
-                      <IconComp className="h-4.5 w-4.5 shrink-0" />
-                      {item.label}
-                    </button>
-                  );
-                })}
+              {/* SIDEBAR NAVIGATION GRIDS WITH ANIMATED PRESENCE SLIDES */}
+              <AnimatePresence mode="wait">
+                {(mobileMenuOpen || (activeTab !== 'ai' && activeTab !== 'chat')) && (
+                  <motion.nav
+                    initial={{ x: -280, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -280, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                    className={`shrink-0 bg-white border-r border-slate-100 p-5 space-y-1.5 z-40 ${
+                      activeTab === 'ai' || activeTab === 'chat'
+                        ? 'absolute inset-y-0 left-0 w-72 shadow-2xl h-full'
+                        : mobileMenuOpen
+                          ? 'absolute inset-x-0 top-0 w-full bg-white h-fit border-b shadow-lg rounded-b-3xl'
+                          : 'hidden md:block md:w-64'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-50">
+                      <span className="block text-[9px] text-indigo-600 font-extrabold uppercase tracking-widest px-1">Creator Suite Workspace</span>
+                      {(activeTab === 'ai' || activeTab === 'chat') && (
+                        <button 
+                          onClick={() => setMobileMenuOpen(false)} 
+                          className="p-1 rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {[
+                      { id: 'dashboard', label: 'General Dashboard', icon: LayoutDashboard, color: 'text-indigo-600' },
+                      { id: 'tree', label: 'Sugora Tree Builder', icon: Share2, color: 'text-rose-500' },
+                      { id: 'chat', label: 'WhatsApp Chat', icon: MessageSquare, color: 'text-emerald-500' },
+                      { id: 'shop', label: 'Shop Marketplace', icon: ShoppingBag, color: 'text-amber-500' },
+                      { id: 'apps', label: 'Embedded Apps', icon: AppWindow, color: 'text-violet-500' },
+                      { id: 'ai', label: 'Copilot AI Chat', icon: Sparkles, color: 'text-purple-600' },
+                      { id: 'wallet', label: 'Wallet & KYC', icon: Wallet, color: 'text-blue-500' }
+                    ].map((item) => {
+                      const IconComp = item.icon;
+                      const isSelected = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full py-3 px-3.5 rounded-2xl text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                            isSelected
+                              ? 'bg-indigo-50/75 text-indigo-700 shadow-xs scale-102 border-l-4 border-indigo-600'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <IconComp className={`h-4.5 w-4.5 shrink-0 ${isSelected ? 'text-indigo-600 stroke-[2.2px]' : item.color}`} />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
 
-                {/* ROLE POWER PRIVILEGES SECTIONS */}
-                {profile.role === 'admin' && (
-                  <div className="pt-4 mt-4 border-t border-zinc-150 dark:border-zinc-800/40 space-y-1">
-                    <span className="block text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-widest px-3 mb-2">Administrations</span>
-                    <button
-                      onClick={() => {
-                        setActiveTab('admin');
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                        activeTab === 'admin'
-                          ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/20 dark:text-rose-400 border-l-2 border-rose-500'
-                          : 'text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/45'
-                      }`}
-                    >
-                      <Lock className="h-4.5 w-4.5 text-rose-500" />
-                      System Admin Panel
-                    </button>
-                  </div>
-                )}
-
-                {(profile.role === 'support' || profile.role === 'admin') && (
-                  <div className="pt-3 space-y-1">
-                    {profile.role !== 'admin' && (
-                      <span className="block text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-widest px-3 mb-1.5">Support Staff</span>
+                    {/* ROLE POWER PRIVILEGES SECTIONS */}
+                    {profile.role === 'admin' && (
+                      <div className="pt-4 mt-4 border-t border-slate-50 space-y-1">
+                        <span className="block text-[9px] text-slate-400 font-extrabold uppercase tracking-widest px-3 mb-2">Administrations Area</span>
+                        <button
+                          onClick={() => {
+                            setActiveTab('admin');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full py-3 px-3.5 rounded-2xl text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                            activeTab === 'admin'
+                              ? 'bg-indigo-50/75 text-indigo-700 shadow-xs border-l-4 border-indigo-600'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-bold'
+                          }`}
+                        >
+                          <Lock className="h-4.5 w-4.5 text-zinc-800" />
+                          <span>System Admin Panel</span>
+                        </button>
+                      </div>
                     )}
-                    <button
-                      onClick={() => {
-                        setActiveTab('support');
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                        activeTab === 'support'
-                          ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/20 dark:text-teal-400 border-l-2 border-teal-500'
-                          : 'text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/45'
-                      }`}
-                    >
-                      <HelpCircle className="h-4.5 w-4.5 text-teal-500" />
-                      Complaints Desk
-                    </button>
-                  </div>
+
+                    {(profile.role === 'support' || profile.role === 'admin') && (
+                      <div className="pt-2 space-y-1">
+                        {profile.role !== 'admin' && (
+                          <span className="block text-[9px] text-slate-400 font-extrabold uppercase tracking-widest px-3 mb-1.5">Support Staff</span>
+                        )}
+                        <button
+                          onClick={() => {
+                            setActiveTab('support');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full py-3 px-3.5 rounded-2xl text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                            activeTab === 'support'
+                              ? 'bg-indigo-50/75 text-indigo-700 shadow-xs border-l-4 border-indigo-600'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <HelpCircle className="h-4.5 w-4.5 text-slate-500" />
+                          <span>Complaints Desk</span>
+                        </button>
+                      </div>
+                    )}
+                  </motion.nav>
                 )}
-              </nav>
+              </AnimatePresence>
 
               {/* CORE RENDERING VIEWSPACE PORTAL */}
-              <main id="main-content-panels" className="flex-grow p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto max-w-full">
-                <div className="max-w-5xl mx-auto h-full">
+              <main id="main-content-panels" className="flex-grow p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto max-w-full bg-slate-50/60">
+                <div className="max-w-7xl mx-auto h-full">
                   {activeTab === 'dashboard' && (
                     <Dashboard
                       profile={profile}
@@ -1587,11 +1592,11 @@ export default function App() {
 
       {/* PREMIUM BOTTOM MOBILE NAVIGATION */}
       {profile && (
-        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 py-1.5 px-1 flex justify-around items-center z-45 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-100 py-2 px-1 flex justify-around items-center z-45 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { id: 'tree', label: 'Sugora Tree', icon: Share2 },
-            { id: 'chat', label: 'Chat', icon: MessageSquare },
+            { id: 'ai', label: 'Copilot Chat', icon: Sparkles },
             { id: 'wallet', label: 'Wallet', icon: Wallet },
             { id: 'more', label: 'Menu', icon: Menu }
           ].map((tab) => {
@@ -1610,11 +1615,11 @@ export default function App() {
                 }}
                 className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all duration-150 cursor-pointer ${
                   isSelected 
-                    ? 'text-emerald-600 dark:text-emerald-400 font-extrabold scale-102' 
-                    : 'text-zinc-500 dark:text-zinc-400'
+                    ? 'text-indigo-600 font-extrabold scale-102' 
+                    : 'text-slate-500'
                 }`}
               >
-                <IconComp className={`h-5 w-5 ${isSelected ? 'stroke-[2.5px]' : 'stroke-[1.8px]'}`} />
+                <IconComp className={`h-5 w-5 ${isSelected ? 'stroke-[2.5px] text-indigo-600' : 'stroke-[1.8px] text-slate-450'}`} />
                 <span className="text-[9px] tracking-tight">{tab.label}</span>
               </button>
             );
@@ -1623,7 +1628,7 @@ export default function App() {
       )}
 
       {/* Embedded universal tiny footer */}
-      <footer className="py-2.5 px-6 border-t border-gray-100 text-center text-[10px] text-gray-400 dark:bg-zinc-950 dark:border-zinc-900 shrink-0 capitalize">
+      <footer className="py-3 px-6 border-t border-slate-100 text-center text-[10px] text-slate-400 bg-white shrink-0 capitalize">
         Sugora.com Studio Portal © 2026 • Verified compliance standards approved
       </footer>
     </div>

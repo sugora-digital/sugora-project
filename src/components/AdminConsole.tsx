@@ -7,13 +7,14 @@ import React, { useState } from 'react';
 import { 
   Settings, Users, ShieldAlert, FileText, ShoppingCart, DollarSign, 
   Plus, Check, X, Edit3, Lock, Trash2, Award, Sparkles, Layout, 
-  Smartphone, BarChart2, MessageSquare, ExternalLink, RefreshCw 
+  Smartphone, BarChart2, MessageSquare, ExternalLink, RefreshCw, Upload
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, 
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid 
 } from 'recharts';
 import { Profile, Product, KYCRequest, WithdrawRequest, SiteSettings, WebsiteSettings, CustomPage } from '../types';
+import SugoraLogo from './SugoraLogo';
 
 interface AdminConsoleProps {
   users: Profile[];
@@ -31,6 +32,7 @@ interface AdminConsoleProps {
   onUpdateWebsiteSettings: (settings: WebsiteSettings) => void;
   onAddCustomPage: (page: CustomPage) => void;
   onDeleteCustomPage: (slug: string) => void;
+  onUpdateCustomPage?: (page: CustomPage) => void;
 }
 
 const STATS_CHART_MOCK_DATA = [
@@ -58,7 +60,8 @@ export default function AdminConsole({
   onChangeCommission,
   onUpdateWebsiteSettings,
   onAddCustomPage,
-  onDeleteCustomPage
+  onDeleteCustomPage,
+  onUpdateCustomPage
 }: AdminConsoleProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
 
@@ -85,8 +88,27 @@ export default function AdminConsole({
   const [brandPhone, setBrandPhone] = useState<string>(websiteSettings.phone || '+91 98765 43210');
   const [brandWhatsapp, setBrandWhatsapp] = useState<string>(websiteSettings.whatsapp || '+91 98765 43210');
   const [brandAddress, setBrandAddress] = useState<string>(websiteSettings.address || 'Sugora Incubations, BKC Silicon Boulevard, Mumbai');
+  
+  // Expanded Metadata States (Keywords, Open Graph, etc.)
+  const [brandKeywords, setBrandKeywords] = useState<string>((websiteSettings as any).keywords || 'sugora, creator economy, link tree, upi wallets, mobile bio');
+  const [brandOgTitle, setBrandOgTitle] = useState<string>((websiteSettings as any).og_title || websiteSettings.site_name);
+  const [brandOgImage, setBrandOgImage] = useState<string>((websiteSettings as any).og_image || websiteSettings.logo_url);
+  const [brandOgDesc, setBrandOgDesc] = useState<string>((websiteSettings as any).og_description || websiteSettings.site_description);
 
-  // Custom Page Creator States
+  // Social handles states
+  const [brandSocialInstagram, setBrandSocialInstagram] = useState<string>(websiteSettings.social_instagram || 'https://instagram.com/sugora_io');
+  const [brandSocialFacebook, setBrandSocialFacebook] = useState<string>(websiteSettings.social_facebook || 'https://facebook.com/sugorapage');
+  const [brandSocialTwitter, setBrandSocialTwitter] = useState<string>(websiteSettings.social_twitter || 'https://twitter.com/sugora_tweets');
+  const [brandSocialLinkedin, setBrandSocialLinkedin] = useState<string>(websiteSettings.social_linkedin || 'https://linkedin.com/company/sugorainc');
+  const [brandSocialYoutube, setBrandSocialYoutube] = useState<string>(websiteSettings.social_youtube || 'https://youtube.com/c/sugoratech');
+  const [brandSocialTiktok, setBrandSocialTiktok] = useState<string>(websiteSettings.social_tiktok || '');
+
+  // File Upload dragover states
+  const [logoDragOver, setLogoDragOver] = useState<boolean>(false);
+  const [favDragOver, setFavDragOver] = useState<boolean>(false);
+
+  // Custom Page Creator / Editing States
+  const [editingPage, setEditingPage] = useState<CustomPage | null>(null);
   const [showPageForm, setShowPageForm] = useState<boolean>(false);
   const [pageTitle, setPageTitle] = useState<string>('');
   const [pageSlug, setPageSlug] = useState<string>('');
@@ -127,6 +149,26 @@ export default function AdminConsole({
     setNewProdDesc('');
   };
 
+  const handleLogoFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setBrandLogo(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFaviconFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setBrandFavicon(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleUpdateBranding = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateWebsiteSettings({
@@ -139,9 +181,32 @@ export default function AdminConsole({
       email: brandEmail,
       phone: brandPhone,
       whatsapp: brandWhatsapp,
-      address: brandAddress
-    });
+      address: brandAddress,
+      social_instagram: brandSocialInstagram,
+      social_facebook: brandSocialFacebook,
+      social_twitter: brandSocialTwitter,
+      social_linkedin: brandSocialLinkedin,
+      social_youtube: brandSocialYoutube,
+      social_tiktok: brandSocialTiktok,
+      // Cast metadata values
+      keywords: brandKeywords,
+      og_title: brandOgTitle,
+      og_image: brandOgImage,
+      og_description: brandOgDesc
+    } as any);
     alert('Website configurations dynamically synchronized in Supabase rules!');
+  };
+
+  const handleEditPageInitiate = (page: CustomPage) => {
+    setEditingPage(page);
+    setPageTitle(page.title);
+    setPageSlug(page.slug);
+    setPageContent(page.content);
+    setPageSeoTitle(page.seo_title || '');
+    setPageSeoDesc(page.seo_description || '');
+    setPageStatus(page.status);
+    setPageTemplate(page.template || 'standard');
+    setShowPageForm(true);
   };
 
   const handleCreateCustomPage = (e: React.FormEvent) => {
@@ -151,25 +216,49 @@ export default function AdminConsole({
       return;
     }
 
-    if (customPages.some(p => p.slug === pageSlug)) {
-      alert('Page slug collision! This path is already registered under standard routers.');
-      return;
+    const cleanSlug = pageSlug.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    if (editingPage) {
+      // Edit / Update mode
+      const updatedPage: CustomPage = {
+        ...editingPage,
+        title: pageTitle,
+        slug: cleanSlug,
+        content: pageContent,
+        seo_title: pageSeoTitle || pageTitle,
+        seo_description: pageSeoDesc,
+        status: pageStatus,
+        template: pageTemplate
+      };
+      if (onUpdateCustomPage) {
+        onUpdateCustomPage(updatedPage);
+      } else {
+        // Fallback: update in-place in simple structures
+        onAddCustomPage(updatedPage);
+      }
+      alert(`Dynamic Page "/p/${updatedPage.slug}" successfully revised!`);
+    } else {
+      // Create mode
+      if (customPages.some(p => p.slug === cleanSlug)) {
+        alert('Page slug collision! This path is already registered under standard routers.');
+        return;
+      }
+
+      const newPage: CustomPage = {
+        id: `page-${Date.now()}`,
+        title: pageTitle,
+        slug: cleanSlug,
+        content: pageContent,
+        seo_title: pageSeoTitle || pageTitle,
+        seo_description: pageSeoDesc,
+        status: pageStatus,
+        created_at: new Date().toISOString(),
+        template: pageTemplate
+      };
+
+      onAddCustomPage(newPage);
+      alert(`Dynamic Page "/p/${newPage.slug}" successfully published!`);
     }
-
-    const newPage: CustomPage = {
-      id: `page-${Date.now()}`,
-      title: pageTitle,
-      slug: pageSlug.toLowerCase().trim().replace(/\s+/g, '-'),
-      content: pageContent,
-      seo_title: pageSeoTitle || pageTitle,
-      seo_description: pageSeoDesc,
-      status: pageStatus,
-      created_at: new Date().toISOString(),
-      template: pageTemplate
-    };
-
-    onAddCustomPage(newPage);
-    alert(`Dynamic Page "/p/${newPage.slug}" successfully published!`);
     
     // Clear states
     setPageTitle('');
@@ -177,6 +266,7 @@ export default function AdminConsole({
     setPageContent('');
     setPageSeoTitle('');
     setPageSeoDesc('');
+    setEditingPage(null);
     setShowPageForm(false);
   };
 
@@ -571,135 +661,379 @@ export default function AdminConsole({
       {activeTab === 'branding' && (
         <div id="website-setting-wrap" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          <div className="bg-white border rounded-3xl p-6 shadow-sm lg:col-span-7">
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-5 flex items-center gap-1">
-              <Settings className="h-4.5 w-4.5 text-blue-600" /> Branding & Contact parameters
-            </h3>
+          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm lg:col-span-8 space-y-6">
+            <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Settings className="h-4.5 w-4.5 text-indigo-600" /> Branding, Metadata, & Core Settings
+              </h3>
+              <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">
+                Live Preview Enabled
+              </span>
+            </div>
 
-            <form onSubmit={handleUpdateBranding} className="space-y-4 text-xs font-bold text-slate-500">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Company / Website Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Slogan Tagline</label>
-                  <input
-                    type="text"
-                    required
-                    value={brandTagline}
-                    onChange={(e) => setBrandTagline(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
-                  />
+            <form onSubmit={handleUpdateBranding} className="space-y-6 text-xs text-slate-500 font-bold">
+              
+              {/* BRAND BASIC INFO */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">Basic Brand Profiling</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Company / Website Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Slogan Tagline</label>
+                    <input
+                      type="text"
+                      required
+                      value={brandTagline}
+                      onChange={(e) => setBrandTagline(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider mb-1">Site Meta Description</label>
-                <textarea
-                  required
-                  value={brandDesc}
-                  onChange={(e) => setBrandDesc(e.target.value)}
-                  className="w-full rounded-xl bg-slate-50 border p-2.5 h-16 resize-none text-slate-800 focus:outline-none"
-                />
+              {/* DRAG AND DROP ASSETS UPLOADERS */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">Website Asset Assets Management</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Website Logo Dropzone */}
+                  <div className="space-y-2">
+                    <label className="block text-[9px] uppercase tracking-wider">Website Main Logo</label>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setLogoDragOver(true); }}
+                      onDragLeave={() => setLogoDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setLogoDragOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          handleLogoFile(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[140px] ${
+                        logoDragOver ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
+                      }`}
+                      onClick={() => document.getElementById('logo-file-picker')?.click()}
+                    >
+                      <input
+                        type="file"
+                        id="logo-file-picker"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleLogoFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      {brandLogo ? (
+                        <div className="space-y-2 flex flex-col items-center">
+                          <img referrerPolicy="no-referrer" src={brandLogo} alt="Logo preview" className="h-10 max-w-[120px] object-contain rounded" />
+                          <span className="text-[9px] text-emerald-600 font-bold select-none">Active • Click or drop to replace</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 flex flex-col items-center text-slate-400">
+                          <Upload className="h-6 w-6 stroke-[1.8px] text-indigo-500 animate-bounce" />
+                          <span className="text-[10px] font-bold">Drag and drop Logo file</span>
+                          <span className="text-[9px] opacity-75">Supports PNG, SVG, JPG, WEBP (or click to pick)</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Or override using Image Link/URL"
+                        value={brandLogo}
+                        onChange={(e) => setBrandLogo(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 border p-2 text-[10px] font-mono text-slate-700 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Website Favicon Dropzone */}
+                  <div className="space-y-2">
+                    <label className="block text-[9px] uppercase tracking-wider">Website Favicon (.ico/png)</label>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setFavDragOver(true); }}
+                      onDragLeave={() => setFavDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setFavDragOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          handleFaviconFile(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[140px] ${
+                        favDragOver ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
+                      }`}
+                      onClick={() => document.getElementById('favicon-file-picker')?.click()}
+                    >
+                      <input
+                        type="file"
+                        id="favicon-file-picker"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleFaviconFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      {brandFavicon ? (
+                        <div className="space-y-2 flex flex-col items-center">
+                          <img referrerPolicy="no-referrer" src={brandFavicon} alt="Favicon preview" className="h-8 w-8 object-contain rounded" />
+                          <span className="text-[9px] text-emerald-600 font-bold select-none">Active • Click or drop to replace</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 flex flex-col items-center text-slate-400">
+                          <Upload className="h-6 w-6 stroke-[1.8px] text-indigo-500 animate-bounce" />
+                          <span className="text-[10px] font-bold">Drag and drop Favicon</span>
+                          <span className="text-[9px] opacity-75 font-medium">Supports .ico, PNG sizes 32x32</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Or override using Favicon URL"
+                        value={brandFavicon}
+                        onChange={(e) => setBrandFavicon(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 border p-2 text-[10px] font-mono text-slate-700 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Footer/Drawer Logo URL (Secondary)</label>
+                    <input
+                      type="text"
+                      placeholder="https://example.com/logo-footer.png"
+                      value={brandFooterLogo}
+                      onChange={(e) => setBrandFooterLogo(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Header Logo URL</label>
-                  <input
-                    type="text"
-                    required
-                    value={brandLogo}
-                    onChange={(e) => setBrandLogo(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Footer Logo URL</label>
-                  <input
-                    type="text"
-                    required
-                    value={brandFooterLogo}
-                    onChange={(e) => setBrandFooterLogo(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none font-mono"
-                  />
+              {/* CORE SEO & SYSTEM METADATA */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">SEO Engine & Metadata Settings</h4>
+                <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Meta Keywords (SEO Indexing, Comma-Separated)</label>
+                    <input
+                      type="text"
+                      value={brandKeywords}
+                      onChange={(e) => setBrandKeywords(e.target.value)}
+                      className="w-full rounded-xl bg-white border p-2.5 text-slate-800 focus:outline-none font-sans font-medium"
+                      placeholder="sugora, wallet portal, automated chat"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider mb-1">Open Graph / Facebook Title</label>
+                      <input
+                        type="text"
+                        value={brandOgTitle}
+                        onChange={(e) => setBrandOgTitle(e.target.value)}
+                        className="w-full rounded-xl bg-white border p-2.5 text-slate-800 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider mb-1 font-sans">Open Graph Core Image URL</label>
+                      <input
+                        type="text"
+                        value={brandOgImage}
+                        onChange={(e) => setBrandOgImage(e.target.value)}
+                        className="w-full rounded-xl bg-white border p-2.5 text-slate-800 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Open Graph Page Description</label>
+                    <textarea
+                      value={brandOgDesc}
+                      onChange={(e) => setBrandOgDesc(e.target.value)}
+                      className="w-full rounded-xl bg-white border p-2.5 h-16 resize-none text-slate-800 focus:outline-none font-medium"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Favcon (Icon) URL</label>
-                  <input
-                    type="text"
-                    required
-                    value={brandFavicon}
-                    onChange={(e) => setBrandFavicon(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none font-mono"
-                  />
+              {/* COMMUNICATIONS & CONTACTS */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">Corporate Contacts & Channels</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Support Contact Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={brandEmail}
+                      onChange={(e) => setBrandEmail(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-sans">Corporate Phone Hotline</label>
+                    <input
+                      type="text"
+                      value={brandPhone}
+                      onChange={(e) => setBrandPhone(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Support Contact Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={brandEmail}
-                    onChange={(e) => setBrandEmail(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">WhatsApp Broadcast Link / Group URL</label>
+                    <input
+                      type="text"
+                      value={brandWhatsapp}
+                      onChange={(e) => setBrandWhatsapp(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Corporate Office HQ Address</label>
+                    <input
+                      type="text"
+                      value={brandAddress}
+                      onChange={(e) => setBrandAddress(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Corporate Phone</label>
-                  <input
-                    type="text"
-                    value={brandPhone}
-                    onChange={(e) => setBrandPhone(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-850"
-                  />
+              {/* SOCIAL MEDIA HANDLES (Propagates dynamically into footer) */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">Global Social Media Configurations</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Instagram Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://instagram.com/handle"
+                      value={brandSocialInstagram}
+                      onChange={(e) => setBrandSocialInstagram(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Facebook Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://facebook.com/handle"
+                      value={brandSocialFacebook}
+                      onChange={(e) => setBrandSocialFacebook(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">WhatsApp Tunnel</label>
-                  <input
-                    type="text"
-                    value={brandWhatsapp}
-                    onChange={(e) => setBrandWhatsapp(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-855"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Twitter / X Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://twitter.com/handle"
+                      value={brandSocialTwitter}
+                      onChange={(e) => setBrandSocialTwitter(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">LinkedIn Business Profile Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://linkedin.com/company/handle"
+                      value={brandSocialLinkedin}
+                      onChange={(e) => setBrandSocialLinkedin(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1">Office Address</label>
-                  <input
-                    type="text"
-                    value={brandAddress}
-                    onChange={(e) => setBrandAddress(e.target.value)}
-                    className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-850"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">YouTube Channel URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://youtube.com/c/handle"
+                      value={brandSocialYoutube}
+                      onChange={(e) => setBrandSocialYoutube(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">TikTok handle Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://tiktok.com/@handle"
+                      value={brandSocialTiktok}
+                      onChange={(e) => setBrandSocialTiktok(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* SAVE BUTTON */}
               <button
                 type="submit"
-                className="w-full rounded-xl bg-slate-900 hover:bg-black py-3 text-xs font-bold text-white shadow-sm flex items-center justify-center gap-1 transition"
+                className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 py-3 text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
               >
-                <Check className="h-4 w-4" /> Save Website Configurations
+                <Check className="h-4.5 w-4.5" /> Save Website Configurations
               </button>
             </form>
           </div>
 
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Live Web Branding Card Preview */}
+            <div className="bg-gradient-to-tr from-indigo-50 to-indigo-10/20 border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+              <h3 className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Branding Card Preview</h3>
+              <div className="bg-white border rounded-2xl p-4 shadow-xs flex flex-col items-center justify-center text-center space-y-3.5">
+                {brandLogo ? (
+                  <img src={brandLogo} referrerPolicy="no-referrer" alt="Rendered header logo preview" className="h-10 w-auto object-contain max-w-[170px]" />
+                ) : (
+                  <SugoraLogo className="h-10" />
+                )}
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 leading-tight">{brandName || 'Sugora Link Portal'}</h4>
+                  <p className="text-[10px] font-bold text-indigo-500/80 uppercase tracking-wider font-mono mt-0.5">{brandTagline || 'Turn Time into Value'}</p>
+                </div>
+                <div className="text-[9.5px] leading-relaxed text-slate-450 mt-1 border-t pt-2 w-full">
+                  {brandDesc || 'No global description registered. Insert custom summaries to bolster Google page indexes.'}
+                </div>
+                <div className="w-full bg-slate-50/50 p-2 text-left rounded-lg text-[9px] font-mono leading-relaxed border space-y-1">
+                  <div><strong className="text-slate-600">Email:</strong> {brandEmail}</div>
+                  <div><strong className="text-slate-600">Phone:</strong> {brandPhone}</div>
+                  <div><strong className="text-slate-600">Whatsapp:</strong> {brandWhatsapp}</div>
+                  <div><strong className="text-slate-600 font-sans">HQ address:</strong> {brandAddress}</div>
+                </div>
+              </div>
+            </div>
+
             {/* Sales commission adjustments */}
             <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-4">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <Smartphone className="h-4.5 w-4.5 text-blue-600" /> Affiliate baseline rate
+                <Smartphone className="h-4.5 w-4.5 text-indigo-600" /> Affiliate baseline rate
               </h3>
 
               <div className="space-y-4">
@@ -716,14 +1050,14 @@ export default function AdminConsole({
                     />
                     <button
                       onClick={saveCommissionSetting}
-                      className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 text-xs cursor-pointer active:scale-95 transition"
+                      className="rounded-xl bg-indigo-650 hover:bg-indigo-700 text-white font-bold px-4 py-2 text-xs cursor-pointer active:scale-95 transition"
                     >
                       Update Rates
                     </button>
                   </div>
                 </div>
 
-                <div className="text-[10.5px] text-slate-450 leading-relaxed bg-slate-50 p-3 rounded-xl border font-medium">
+                <div className="text-[10.5px] text-slate-400 leading-relaxed bg-slate-50 p-3 rounded-xl border font-medium">
                   System warning: modifying active universal coefficients recalibrates current KYC and wallet withdrawal metrics instantaneously in the background.
                 </div>
               </div>
@@ -834,7 +1168,7 @@ export default function AdminConsole({
                 </div>
 
                 <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <span className="text-[10px] text-slate-450 uppercase font-black tracking-wide">Publish Status:</span>
                     <select
                       value={pageStatus}
@@ -847,8 +1181,10 @@ export default function AdminConsole({
                   </div>
 
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setShowPageForm(false)} className="px-4 py-2 border rounded-lg bg-white hover:bg-slate-50 text-slate-500 font-bold">Cancel</button>
-                    <button type="submit" className="px-4.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold flex items-center gap-1 shadow-sm"><Check className="h-4 w-4" /> Publish Page</button>
+                    <button type="button" onClick={() => { setShowPageForm(false); setEditingPage(null); }} className="px-4 py-2 border rounded-lg bg-white hover:bg-slate-50 text-slate-500 font-bold">Cancel</button>
+                    <button type="submit" className="px-4.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold flex items-center gap-1 shadow-sm">
+                      <Check className="h-4 w-4" /> {editingPage ? 'Save Changes' : 'Publish Page'}
+                    </button>
                   </div>
                 </div>
               </form>
@@ -857,10 +1193,10 @@ export default function AdminConsole({
             /* Pages catalog list */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {customPages.map(page => (
-                <div key={page.id} className="group bg-white rounded-3xl p-5 border shadow-sm flex flex-col justify-between hover:border-slate-350 transition duration-150">
+                <div key={page.id} className="group bg-white rounded-3xl p-5 border shadow-sm flex flex-col justify-between hover:border-indigo-300 transition duration-150">
                   <div>
                     <div className="flex justify-between items-start mb-2.5">
-                      <span className="rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-[9px] uppercase px-2.5 py-1">
+                      <span className="rounded-xl bg-indigo-55 border border-indigo-100 text-indigo-700 font-extrabold text-[9px] uppercase px-2.5 py-1">
                         /p/{page.slug}
                       </span>
 
@@ -873,17 +1209,26 @@ export default function AdminConsole({
                       </span>
                     </div>
 
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{page.title}</h4>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{page.title}</h4>
                     <p className="text-[10.5px] text-slate-400 mt-1 lines-clamp-3 block font-semibold">{page.seo_description || 'No meta index description loaded.'}</p>
                   </div>
 
                   <div className="mt-6 pt-4 border-t flex justify-between items-center shrink-0">
                     <span className="text-[9.5px] text-slate-400 font-mono">Template: {page.template}</span>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleEditPageInitiate(page)}
+                        className="h-8 w-8 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-6 w-8 flex items-center justify-center border transition"
+                        title="Edit Page"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+
                       <button
                         onClick={() => onDeleteCustomPage(page.slug)}
                         className="h-8 w-8 rounded-lg bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-650 flex items-center justify-center border transition"
+                        title="Delete Page"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
