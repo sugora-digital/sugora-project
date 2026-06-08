@@ -15,6 +15,8 @@ interface AdminConsoleProps {
   onApproveWithdrawal: (reqId: string) => void;
   onAddProduct: (prod: Product) => void;
   onChangeCommission: (rate: number) => void;
+  activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings';
+  onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings') => void;
 }
 
 export default function AdminConsole({
@@ -27,9 +29,15 @@ export default function AdminConsole({
   onRejectKYC,
   onApproveWithdrawal,
   onAddProduct,
-  onChangeCommission
+  onChangeCommission,
+  activeSubTab,
+  onSubTabChange
 }: AdminConsoleProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'settings'>('stats');
+
+  const rawTab = activeSubTab !== undefined ? activeSubTab : activeTab;
+  const currentTab = (rawTab === 'branding' || rawTab === 'pages') ? 'settings' : rawTab;
+  const setCurrentTab = onSubTabChange !== undefined ? onSubTabChange : setActiveTab;
 
   // New product form
   const [newProdName, setNewProdName] = useState<string>('');
@@ -96,25 +104,27 @@ export default function AdminConsole({
         </div>
 
         {/* Tab switcher */}
-        <div className="flex flex-wrap gap-1.5 bg-gray-50 dark:bg-zinc-900 p-1 rounded-xl">
-          {(['stats', 'users', 'kyc', 'shop', 'settings'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                activeTab === tab
-                  ? 'bg-white text-emerald-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        {!activeSubTab && (
+          <div className="flex flex-wrap gap-1.5 bg-gray-50 dark:bg-zinc-900 p-1 rounded-xl">
+            {(['stats', 'users', 'kyc', 'shop', 'settings'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setCurrentTab(tab as any)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
+                  currentTab === tab
+                    ? 'bg-white text-emerald-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* STATS OVERVIEW PANEL */}
-      {activeTab === 'stats' && (
+      {currentTab === 'stats' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border bg-white p-5 shadow-xs dark:bg-zinc-900 dark:border-zinc-800">
@@ -180,7 +190,7 @@ export default function AdminConsole({
       )}
 
       {/* USERS ACCOUNT LIST TAB */}
-      {activeTab === 'users' && (
+      {currentTab === 'users' && (
         <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
           <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Platform Database Users</h3>
           <div className="overflow-x-auto">
@@ -217,7 +227,7 @@ export default function AdminConsole({
       )}
 
       {/* KYC COMPLIANCE MANAGE TAB */}
-      {activeTab === 'kyc' && (
+      {currentTab === 'kyc' && (
         <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
           <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Compliance KYC Verification Board</h3>
           {kycRequests.length === 0 ? (
@@ -269,7 +279,7 @@ export default function AdminConsole({
       )}
 
       {/* SHOP MANAGEMENT TAB */}
-      {activeTab === 'shop' && (
+      {currentTab === 'shop' && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Append product form */}
           <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
@@ -400,7 +410,7 @@ export default function AdminConsole({
       )}
 
       {/* CORE COMMISSION SETTINGS TAB */}
-      {activeTab === 'settings' && (
+      {currentTab === 'settings' && (
         <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs max-w-md">
           <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4 flex items-center gap-1.5">
             <Settings className="h-4.5 w-4.5" /> Commission Allocation Engine

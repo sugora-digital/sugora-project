@@ -15,7 +15,16 @@ import {
   Share2,
   Lock,
   Menu,
-  X
+  X,
+  BarChart2,
+  Users,
+  ShieldAlert,
+  ShoppingCart,
+  Settings,
+  Layout,
+  AlertTriangle,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_APPS, INITIAL_MOCK_USERS, INITIAL_MOCK_TICKETS, INITIAL_TRANSACTIONS } from '../mockData';
@@ -41,6 +50,10 @@ export default function Home() {
   // Embedded light state-based SPA router
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [roleInput, setRoleInput] = useState<'user' | 'support' | 'admin'>('user');
+
+  // Admin and Support active sub-states for direct sidebar routing
+  const [adminSubTab, setAdminSubTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
+  const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'assigned' | 'resolved'>('all');
 
   const navigateTo = (path: string) => {
     if (typeof window !== 'undefined') {
@@ -1073,79 +1086,105 @@ export default function Home() {
               <nav className={`w-full md:w-64 shrink-0 bg-white border-r border-[#eceff1] dark:bg-[#0c0e12]/85 dark:border-zinc-800/80 p-4.5 space-y-1.5 z-20 font-sans ${
                 mobileMenuOpen ? 'absolute inset-x-0 top-0 bg-white dark:bg-[#12141a] h-fit border-b shadow-lg border-zinc-200 dark:border-zinc-800' : 'hidden md:block'
               }`}>
-                <span className="block text-[9px] text-gray-450 dark:text-zinc-500 font-bold uppercase tracking-widest px-3 mb-2.5">Workspace</span>
+                <span className="block text-[9.5px] text-gray-500 dark:text-zinc-400 font-extrabold uppercase tracking-widest px-3 mb-2.5">
+                  {profile.role === 'admin' 
+                    ? '⚙️ System Control Cabinet' 
+                    : profile.role === 'support' 
+                      ? '🎫 Support Desk Operations' 
+                      : 'Creator Suite Workspace'}
+                </span>
                 
-                {[
-                  { id: 'dashboard', label: 'General Dashboard', icon: LayoutDashboard },
-                  { id: 'tree', label: 'Sugora Tree Builder', icon: Share2 },
-                  { id: 'chat', label: 'WhatsApp Chat', icon: MessageSquare },
-                  { id: 'shop', label: 'Shop Marketplace', icon: ShoppingBag },
-                  { id: 'apps', label: 'Embedded Apps', icon: AppWindow },
-                  { id: 'ai', label: 'Copilot AI Chat', icon: Sparkles },
-                  { id: 'wallet', label: 'Wallet & KYC', icon: Wallet }
-                ].map((item) => {
-                  const IconComp = item.icon;
-                  const isSelected = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                        isSelected
-                          ? 'bg-emerald-50 text-emerald-850 dark:bg-emerald-500/10 dark:text-emerald-400 border-l-2 border-emerald-600'
-                          : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-850/40'
-                      }`}
-                    >
-                      <IconComp className="h-4.5 w-4.5 shrink-0" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-
-                {/* ROLE POWER PRIVILEGES SECTIONS */}
-                {profile.role === 'admin' && (
-                  <div className="pt-4 mt-4 border-t border-zinc-150 dark:border-zinc-805/40 space-y-1">
-                    <span className="block text-[9px] text-gray-450 dark:text-zinc-500 font-bold uppercase tracking-widest px-3 mb-2">Administrations</span>
-                    <button
-                      onClick={() => {
-                        setActiveTab('admin');
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                        activeTab === 'admin'
-                          ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/20 dark:text-rose-450 border-l-2 border-rose-500'
-                          : 'text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/40'
-                      }`}
-                    >
-                      <Lock className="h-4.5 w-4.5 text-rose-500" />
-                      System Admin Panel
-                    </button>
-                  </div>
-                )}
-
-                {(profile.role === 'support' || profile.role === 'admin') && (
-                  <div className="pt-3 space-y-1">
-                    {profile.role !== 'admin' && (
-                      <span className="block text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-widest px-3 mb-1.5 font-sans">Support Staff</span>
-                    )}
-                    <button
-                      onClick={() => {
-                        setActiveTab('support');
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                        activeTab === 'support'
-                          ? 'bg-teal-50 text-teal-850 dark:bg-teal-950/20 dark:text-teal-400 border-l-2 border-teal-500'
-                          : 'text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/40'
-                      }`}
-                    >
-                      <HelpCircle className="h-4.5 w-4.5 text-teal-500" />
-                      Complaints Desk
-                    </button>
-                  </div>
+                {profile.role === 'admin' ? (
+                  // ADMIN PANELS DIRECT VIEW
+                  [
+                    { id: 'stats', label: 'Dashboard', icon: BarChart2 },
+                    { id: 'users', label: 'Users Map', icon: Users },
+                    { id: 'kyc', label: 'KYC Panel', icon: ShieldAlert },
+                    { id: 'shop', label: 'Inventory', icon: ShoppingCart },
+                    { id: 'branding', label: 'Branding', icon: Settings },
+                    { id: 'pages', label: 'Page Builder', icon: Layout }
+                  ].map((item) => {
+                    const IconComp = item.icon;
+                    const isSelected = activeTab === 'admin' && adminSubTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveTab('admin');
+                          setAdminSubTab(item.id as any);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                          isSelected
+                            ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/20 dark:text-rose-450 border-l-2 border-rose-500 font-bold'
+                            : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-850/40'
+                        }`}
+                      >
+                        <IconComp className="h-4.5 w-4.5 shrink-0 text-rose-550" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })
+                ) : profile.role === 'support' ? (
+                  // SUPPORT FILTER PANELS DIRECT VIEW
+                  [
+                    { id: 'all', label: 'All Tickets', icon: HelpCircle },
+                    { id: 'open', label: 'Open Tickets', icon: AlertTriangle },
+                    { id: 'assigned', label: 'Assigned Tickets', icon: Clock },
+                    { id: 'resolved', label: 'Resolved Tickets', icon: CheckCircle }
+                  ].map((item) => {
+                    const IconComp = item.icon;
+                    const isSelected = activeTab === 'support' && supportFilter === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveTab('support');
+                          setSupportFilter(item.id as any);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                          isSelected
+                            ? 'bg-teal-50 text-teal-850 dark:bg-teal-950/20 dark:text-teal-400 border-l-2 border-teal-500 font-bold'
+                            : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-850/40'
+                        }`}
+                      >
+                        <IconComp className="h-4.5 w-4.5 shrink-0 text-teal-550" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  // REGULAR USER CREATOR PANELS
+                  [
+                    { id: 'dashboard', label: 'General Dashboard', icon: LayoutDashboard },
+                    { id: 'tree', label: 'Sugora Tree', icon: Share2 },
+                    { id: 'chat', label: 'Sugora Chat', icon: MessageSquare },
+                    { id: 'shop', label: 'Sugora Shop', icon: ShoppingBag },
+                    { id: 'apps', label: 'Sugora Apps', icon: AppWindow },
+                    { id: 'ai', label: 'AI Chat', icon: Sparkles },
+                    { id: 'wallet', label: 'Wallet & KYC', icon: Wallet }
+                  ].map((item) => {
+                    const IconComp = item.icon;
+                    const isSelected = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full py-2.5 px-3 rounded-lg text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-50 text-emerald-850 dark:bg-emerald-500/10 dark:text-emerald-400 border-l-2 border-emerald-600'
+                            : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-850/40'
+                        }`}
+                      >
+                        <IconComp className="h-4.5 w-4.5 shrink-0" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })
                 )}
               </nav>
 
@@ -1221,6 +1260,8 @@ export default function Home() {
                       onApproveWithdrawal={handleApproveWithdrawal}
                       onAddProduct={handleAddProduct}
                       onChangeCommission={handleChangeCommission}
+                      activeSubTab={adminSubTab}
+                      onSubTabChange={setAdminSubTab}
                     />
                   )}
 
@@ -1228,6 +1269,8 @@ export default function Home() {
                     <SupportConsole
                       tickets={ticketsList}
                       onResolveTicket={handleResolveSupportTicket}
+                      selectedFilter={supportFilter}
+                      onFilterChange={setSupportFilter}
                     />
                   )}
                 </div>

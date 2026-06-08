@@ -7,14 +7,24 @@ import { SupportTicket } from '../types';
 interface SupportConsoleProps {
   tickets: SupportTicket[];
   onResolveTicket: (ticketId: string) => void;
+  selectedFilter?: 'all' | 'open' | 'assigned' | 'resolved';
+  onFilterChange?: (filter: 'all' | 'open' | 'assigned' | 'resolved') => void;
 }
 
-export default function SupportConsole({ tickets, onResolveTicket }: SupportConsoleProps) {
+export default function SupportConsole({ 
+  tickets, 
+  onResolveTicket,
+  selectedFilter,
+  onFilterChange
+}: SupportConsoleProps) {
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'assigned' | 'resolved'>('all');
 
+  const currentFilter = selectedFilter !== undefined ? selectedFilter : filterStatus;
+  const setCurrentFilter = onFilterChange !== undefined ? onFilterChange : setFilterStatus;
+
   const filteredTickets = tickets.filter(t => {
-    if (filterStatus === 'all') return true;
-    return t.status === filterStatus;
+    if (currentFilter === 'all') return true;
+    return t.status === currentFilter;
   });
 
   return (
@@ -31,21 +41,23 @@ export default function SupportConsole({ tickets, onResolveTicket }: SupportCons
         </div>
 
         {/* Filters */}
-        <div className="flex gap-1 bg-gray-50 dark:bg-zinc-900 p-1 rounded-xl">
-          {(['all', 'open', 'assigned', 'resolved'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilterStatus(f)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                filterStatus === f
-                  ? 'bg-white text-teal-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        {!selectedFilter && (
+          <div className="flex gap-1 bg-gray-50 dark:bg-zinc-900 p-1 rounded-xl">
+            {(['all', 'open', 'assigned', 'resolved'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setCurrentFilter(f)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
+                  currentFilter === f
+                    ? 'bg-white text-teal-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {filteredTickets.length === 0 ? (

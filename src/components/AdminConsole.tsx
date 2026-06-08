@@ -33,6 +33,8 @@ interface AdminConsoleProps {
   onAddCustomPage: (page: CustomPage) => void;
   onDeleteCustomPage: (slug: string) => void;
   onUpdateCustomPage?: (page: CustomPage) => void;
+  activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages';
+  onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages') => void;
 }
 
 const STATS_CHART_MOCK_DATA = [
@@ -61,9 +63,14 @@ export default function AdminConsole({
   onUpdateWebsiteSettings,
   onAddCustomPage,
   onDeleteCustomPage,
-  onUpdateCustomPage
+  onUpdateCustomPage,
+  activeSubTab,
+  onSubTabChange
 }: AdminConsoleProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
+  const [activeTab, setActiveTab ] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
+
+  const currentTab = activeSubTab !== undefined ? activeSubTab : activeTab;
+  const setCurrentTab = onSubTabChange !== undefined ? onSubTabChange : setActiveTab;
 
   // New product state
   const [newProdName, setNewProdName] = useState<string>('');
@@ -294,37 +301,39 @@ export default function AdminConsole({
         </div>
 
         {/* Tab Selection */}
-        <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-2xl w-fit">
-          {[
-            { key: 'stats', label: 'Dashboard', icon: BarChart2 },
-            { key: 'users', label: 'Users Map', icon: Users },
-            { key: 'kyc', label: 'KYC Panel', icon: ShieldAlert },
-            { key: 'shop', label: 'Inventory', icon: ShoppingCart },
-            { key: 'branding', label: 'Branding', icon: Settings },
-            { key: 'pages', label: 'Page Builder', icon: Layout }
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isSel = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
-                className={`rounded-xl px-3.5 py-2.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  isSel
-                    ? 'bg-blue-600 shadow-sm text-white'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {!activeSubTab && (
+          <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-2xl w-fit">
+            {[
+              { key: 'stats', label: 'Dashboard', icon: BarChart2 },
+              { key: 'users', label: 'Users Map', icon: Users },
+              { key: 'kyc', label: 'KYC Panel', icon: ShieldAlert },
+              { key: 'shop', label: 'Inventory', icon: ShoppingCart },
+              { key: 'branding', label: 'Branding', icon: Settings },
+              { key: 'pages', label: 'Page Builder', icon: Layout }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isSel = currentTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setCurrentTab(tab.key as any)}
+                  className={`rounded-xl px-3.5 py-2.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    isSel
+                      ? 'bg-blue-600 shadow-sm text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 1. STATS DASHBOARD & CHARTS */}
-      {activeTab === 'stats' && (
+      {currentTab === 'stats' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border bg-white p-5 shadow-xs">
@@ -437,7 +446,7 @@ export default function AdminConsole({
       )}
 
       {/* 2. CREATORS/USERS MAP ACCOUNT TAB */}
-      {activeTab === 'users' && (
+      {currentTab === 'users' && (
         <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Registered Creators</h3>
           <div className="overflow-x-auto rounded-xl border">
@@ -476,7 +485,7 @@ export default function AdminConsole({
       )}
 
       {/* 3. KYC COMPLIANCE WORKFLOW */}
-      {activeTab === 'kyc' && (
+      {currentTab === 'kyc' && (
         <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Compliance KYC Panel</h3>
           {kycRequests.length === 0 ? (
@@ -526,7 +535,7 @@ export default function AdminConsole({
       )}
 
       {/* 4. DIGITAL SHOP INVENTORY PRODUCTS APPENDS */}
-      {activeTab === 'shop' && (
+      {currentTab === 'shop' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Append product form */}
@@ -658,7 +667,7 @@ export default function AdminConsole({
       )}
 
       {/* 5. BRANDING & CONTACT SETTINGS */}
-      {activeTab === 'branding' && (
+      {currentTab === 'branding' && (
         <div id="website-setting-wrap" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm lg:col-span-8 space-y-6">
@@ -1067,7 +1076,7 @@ export default function AdminConsole({
       )}
 
       {/* 6. CUSTOM PAGE BUILDER (DYNAMIC LAYOUT CREATOR) */}
-      {activeTab === 'pages' && (
+      {currentTab === 'pages' && (
         <div className="space-y-6">
           <div className="flex justify-between items-center bg-white border rounded-2xl p-4 shadow-sm">
             <div>
