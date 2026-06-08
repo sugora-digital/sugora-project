@@ -1,8 +1,20 @@
-"use client";
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 import React, { useState } from 'react';
-import { Lock, Plus, Check, X, Settings } from 'lucide-react';
-import { Profile, Product, KYCRequest, WithdrawRequest, SiteSettings } from '../types';
+import { 
+  Settings, Users, ShieldAlert, FileText, ShoppingCart, DollarSign, 
+  Plus, Check, X, Edit3, Lock, Trash2, Award, Sparkles, Layout, 
+  Smartphone, BarChart2, MessageSquare, ExternalLink, RefreshCw, Upload
+} from 'lucide-react';
+import { 
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar, 
+  LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid 
+} from 'recharts';
+import { Profile, Product, KYCRequest, WithdrawRequest, SiteSettings, WebsiteSettings, CustomPage } from '../types';
+import SugoraLogo from './SugoraLogo';
 
 interface AdminConsoleProps {
   users: Profile[];
@@ -10,14 +22,30 @@ interface AdminConsoleProps {
   kycRequests: KYCRequest[];
   withdrawRequests: WithdrawRequest[];
   siteSettings: SiteSettings;
+  websiteSettings: WebsiteSettings;
+  customPages: CustomPage[];
   onApproveKYC: (userId: string) => void;
   onRejectKYC: (userId: string) => void;
   onApproveWithdrawal: (reqId: string) => void;
   onAddProduct: (prod: Product) => void;
   onChangeCommission: (rate: number) => void;
-  activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings';
-  onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings') => void;
+  onUpdateWebsiteSettings: (settings: WebsiteSettings) => void;
+  onAddCustomPage: (page: CustomPage) => void;
+  onDeleteCustomPage: (slug: string) => void;
+  onUpdateCustomPage?: (page: CustomPage) => void;
+  activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages';
+  onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages') => void;
 }
+
+const STATS_CHART_MOCK_DATA = [
+  { name: 'Monday', users: 120, sales: 2400, traffic: 3200 },
+  { name: 'Tuesday', users: 160, sales: 3800, traffic: 4500 },
+  { name: 'Wednesday', users: 190, sales: 3100, traffic: 4200 },
+  { name: 'Thursday', users: 240, sales: 5200, traffic: 6100 },
+  { name: 'Friday', users: 280, sales: 6800, traffic: 7300 },
+  { name: 'Saturday', users: 310, sales: 7400, traffic: 8900 },
+  { name: 'Sunday', users: 350, sales: 8100, traffic: 9500 }
+];
 
 export default function AdminConsole({
   users,
@@ -25,21 +53,26 @@ export default function AdminConsole({
   kycRequests,
   withdrawRequests,
   siteSettings,
+  websiteSettings,
+  customPages,
   onApproveKYC,
   onRejectKYC,
   onApproveWithdrawal,
   onAddProduct,
   onChangeCommission,
+  onUpdateWebsiteSettings,
+  onAddCustomPage,
+  onDeleteCustomPage,
+  onUpdateCustomPage,
   activeSubTab,
   onSubTabChange
 }: AdminConsoleProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'settings'>('stats');
+  const [activeTab, setActiveTab ] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
 
-  const rawTab = activeSubTab !== undefined ? activeSubTab : activeTab;
-  const currentTab = (rawTab === 'branding' || rawTab === 'pages') ? 'settings' : rawTab;
+  const currentTab = activeSubTab !== undefined ? activeSubTab : activeTab;
   const setCurrentTab = onSubTabChange !== undefined ? onSubTabChange : setActiveTab;
 
-  // New product form
+  // New product state
   const [newProdName, setNewProdName] = useState<string>('');
   const [newProdDesc, setNewProdDesc] = useState<string>('');
   const [newProdImg, setNewProdImg] = useState<string>('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=200');
@@ -51,15 +84,63 @@ export default function AdminConsole({
 
   const [commissionRateVal, setCommissionRateVal] = useState<string>(siteSettings.commission_rate.toString());
 
-  // Calculations for Stats tab
-  const totalFinancialVolume = withdrawRequests
+  // Website Settings Form States
+  const [brandName, setBrandName] = useState<string>(websiteSettings.site_name);
+  const [brandDesc, setBrandDesc] = useState<string>(websiteSettings.site_description);
+  const [brandLogo, setBrandLogo] = useState<string>(websiteSettings.logo_url);
+  const [brandFavicon, setBrandFavicon] = useState<string>(websiteSettings.favicon_url);
+  const [brandFooterLogo, setBrandFooterLogo] = useState<string>(websiteSettings.footer_logo_url || '');
+  const [brandTagline, setBrandTagline] = useState<string>(websiteSettings.tagline || 'Turn Time into Value');
+  const [brandEmail, setBrandEmail] = useState<string>(websiteSettings.email || 'ceo.sugora@gmail.com');
+  const [brandPhone, setBrandPhone] = useState<string>(websiteSettings.phone || '+91 98765 43210');
+  const [brandWhatsapp, setBrandWhatsapp] = useState<string>(websiteSettings.whatsapp || '+91 98765 43210');
+  const [brandAddress, setBrandAddress] = useState<string>(websiteSettings.address || 'Sugora Incubations, BKC Silicon Boulevard, Mumbai');
+  
+  // Expanded Metadata States (Keywords, Open Graph, etc.)
+  const [brandKeywords, setBrandKeywords] = useState<string>((websiteSettings as any).keywords || 'sugora, creator economy, link tree, upi wallets, mobile bio');
+  const [brandOgTitle, setBrandOgTitle] = useState<string>((websiteSettings as any).og_title || websiteSettings.site_name);
+  const [brandOgImage, setBrandOgImage] = useState<string>((websiteSettings as any).og_image || websiteSettings.logo_url);
+  const [brandOgDesc, setBrandOgDesc] = useState<string>((websiteSettings as any).og_description || websiteSettings.site_description);
+
+  // Social handles states
+  const [brandSocialInstagram, setBrandSocialInstagram] = useState<string>(websiteSettings.social_instagram || 'https://instagram.com/sugora_io');
+  const [brandSocialFacebook, setBrandSocialFacebook] = useState<string>(websiteSettings.social_facebook || 'https://facebook.com/sugorapage');
+  const [brandSocialTwitter, setBrandSocialTwitter] = useState<string>(websiteSettings.social_twitter || 'https://twitter.com/sugora_tweets');
+  const [brandSocialLinkedin, setBrandSocialLinkedin] = useState<string>(websiteSettings.social_linkedin || 'https://linkedin.com/company/sugorainc');
+  const [brandSocialYoutube, setBrandSocialYoutube] = useState<string>(websiteSettings.social_youtube || 'https://youtube.com/c/sugoratech');
+  const [brandSocialTiktok, setBrandSocialTiktok] = useState<string>(websiteSettings.social_tiktok || '');
+
+  // File Upload dragover states
+  const [logoDragOver, setLogoDragOver] = useState<boolean>(false);
+  const [favDragOver, setFavDragOver] = useState<boolean>(false);
+
+  // Individual Module Logos States
+  const [logoSugoraChat, setLogoSugoraChat] = useState<string>(websiteSettings.logo_sugora_chat || '');
+  const [logoAIChat, setLogoAIChat] = useState<string>(websiteSettings.logo_ai_chat || '');
+  const [logoSugoraTree, setLogoSugoraTree] = useState<string>(websiteSettings.logo_sugora_tree || '');
+  const [logoSugoraShop, setLogoSugoraShop] = useState<string>(websiteSettings.logo_sugora_shop || '');
+  const [logoSugoraApps, setLogoSugoraApps] = useState<string>(websiteSettings.logo_sugora_apps || '');
+
+  // Custom Page Creator / Editing States
+  const [editingPage, setEditingPage] = useState<CustomPage | null>(null);
+  const [showPageForm, setShowPageForm] = useState<boolean>(false);
+  const [pageTitle, setPageTitle] = useState<string>('');
+  const [pageSlug, setPageSlug] = useState<string>('');
+  const [pageContent, setPageContent] = useState<string>('');
+  const [pageSeoTitle, setPageSeoTitle] = useState<string>('');
+  const [pageSeoDesc, setPageSeoDesc] = useState<string>('');
+  const [pageStatus, setPageStatus] = useState<'Published' | 'Draft'>('Published');
+  const [pageTemplate, setPageTemplate] = useState<string>('standard');
+
+  // Derived financial computations
+  const approvedVolume = withdrawRequests
     .filter(w => w.status === 'approved')
     .reduce((sum, w) => sum + w.amount, 0);
 
   const handleCreateProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProdName || !newProdDesc || !newProdPrice) {
-      alert('Fill standard required fields!');
+      alert('All baseline fields are mandatory!');
       return;
     }
 
@@ -77,106 +158,294 @@ export default function AdminConsole({
     };
 
     onAddProduct(nProduct);
-    alert('Digital product successfully integrated into live Marketplace!');
+    alert('Product file successfully appended to the live store!');
     setNewProdName('');
     setNewProdDesc('');
+  };
+
+  const handleLogoFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setBrandLogo(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFaviconFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setBrandFavicon(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpdateBranding = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateWebsiteSettings({
+      site_name: brandName,
+      site_description: brandDesc,
+      logo_url: brandLogo,
+      favicon_url: brandFavicon,
+      footer_logo_url: brandFooterLogo,
+      logo_sugora_chat: logoSugoraChat,
+      logo_ai_chat: logoAIChat,
+      logo_sugora_tree: logoSugoraTree,
+      logo_sugora_shop: logoSugoraShop,
+      logo_sugora_apps: logoSugoraApps,
+      tagline: brandTagline,
+      email: brandEmail,
+      phone: brandPhone,
+      whatsapp: brandWhatsapp,
+      address: brandAddress,
+      social_instagram: brandSocialInstagram,
+      social_facebook: brandSocialFacebook,
+      social_twitter: brandSocialTwitter,
+      social_linkedin: brandSocialLinkedin,
+      social_youtube: brandSocialYoutube,
+      social_tiktok: brandSocialTiktok,
+      // Cast metadata values
+      keywords: brandKeywords,
+      og_title: brandOgTitle,
+      og_image: brandOgImage,
+      og_description: brandOgDesc
+    } as any);
+    alert('Website configurations dynamically synchronized in Supabase rules!');
+  };
+
+  const handleEditPageInitiate = (page: CustomPage) => {
+    setEditingPage(page);
+    setPageTitle(page.title);
+    setPageSlug(page.slug);
+    setPageContent(page.content);
+    setPageSeoTitle(page.seo_title || '');
+    setPageSeoDesc(page.seo_description || '');
+    setPageStatus(page.status);
+    setPageTemplate(page.template || 'standard');
+    setShowPageForm(true);
+  };
+
+  const handleCreateCustomPage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pageTitle || !pageSlug || !pageContent) {
+      alert('Page metadata validation failed! Slug, title and body required.');
+      return;
+    }
+
+    const cleanSlug = pageSlug.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    if (editingPage) {
+      // Edit / Update mode
+      const updatedPage: CustomPage = {
+        ...editingPage,
+        title: pageTitle,
+        slug: cleanSlug,
+        content: pageContent,
+        seo_title: pageSeoTitle || pageTitle,
+        seo_description: pageSeoDesc,
+        status: pageStatus,
+        template: pageTemplate
+      };
+      if (onUpdateCustomPage) {
+        onUpdateCustomPage(updatedPage);
+      } else {
+        // Fallback: update in-place in simple structures
+        onAddCustomPage(updatedPage);
+      }
+      alert(`Dynamic Page "/p/${updatedPage.slug}" successfully revised!`);
+    } else {
+      // Create mode
+      if (customPages.some(p => p.slug === cleanSlug)) {
+        alert('Page slug collision! This path is already registered under standard routers.');
+        return;
+      }
+
+      const newPage: CustomPage = {
+        id: `page-${Date.now()}`,
+        title: pageTitle,
+        slug: cleanSlug,
+        content: pageContent,
+        seo_title: pageSeoTitle || pageTitle,
+        seo_description: pageSeoDesc,
+        status: pageStatus,
+        created_at: new Date().toISOString(),
+        template: pageTemplate
+      };
+
+      onAddCustomPage(newPage);
+      alert(`Dynamic Page "/p/${newPage.slug}" successfully published!`);
+    }
+    
+    // Clear states
+    setPageTitle('');
+    setPageSlug('');
+    setPageContent('');
+    setPageSeoTitle('');
+    setPageSeoDesc('');
+    setEditingPage(null);
+    setShowPageForm(false);
   };
 
   const saveCommissionSetting = () => {
     const rate = parseFloat(commissionRateVal);
     if (!isNaN(rate) && rate >= 0 && rate <= 100) {
       onChangeCommission(rate);
-      alert(`Settings changed: default affiliate rate set to ${rate}%`);
+      alert(`Sales referral baseline coefficient upgraded to ${rate}%`);
     }
   };
 
   return (
-    <div id="admin-management-wrap" className="space-y-6 font-sans">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 border-gray-50 dark:border-zinc-800">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-100 flex items-center gap-1.5">
-            <Lock className="h-6 w-6 text-emerald-600" />
-            Sugora Global Administrator Console
+    <div id="admin-management-container" className="space-y-6 bg-slate-50/20 dark:bg-zinc-950/20 p-1 md:p-4 rounded-3xl font-sans">
+      
+      {/* Header section with named switcher */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b pb-5 border-slate-100 dark:border-zinc-850 bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm">
+        <div className="text-left">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+            <Lock className="h-6.5 w-6.5 text-blue-600 dark:text-blue-400 animate-pulse" />
+            System Control Cabinet
           </h1>
-          <p className="text-xs text-gray-500">
-            Secure administrative control deck. Approve KYC verifications, disperse withdrawal audits, and append shop inventories.
+          <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1 leading-relaxed">
+            Authorized admin credentials granted. Monitor traffic, verify KYC credentials, manage website templates, and build dynamic pages.
           </p>
         </div>
 
-        {/* Tab switcher */}
+        {/* Tab Selection */}
         {!activeSubTab && (
-          <div className="flex flex-wrap gap-1.5 bg-gray-50 dark:bg-zinc-900 p-1 rounded-xl">
-            {(['stats', 'users', 'kyc', 'shop', 'settings'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setCurrentTab(tab as any)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                  currentTab === tab
-                    ? 'bg-white text-emerald-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                    : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-1.5 bg-slate-100 dark:bg-zinc-950 p-1 rounded-2xl w-fit">
+            {[
+              { key: 'stats', label: 'Dashboard', icon: BarChart2 },
+              { key: 'users', label: 'Users Map', icon: Users },
+              { key: 'kyc', label: 'KYC Panel', icon: ShieldAlert },
+              { key: 'shop', label: 'Inventory', icon: ShoppingCart },
+              { key: 'branding', label: 'Branding', icon: Settings },
+              { key: 'pages', label: 'Page Builder', icon: Layout }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isSel = currentTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setCurrentTab(tab.key as any)}
+                  className={`rounded-xl px-3.5 py-2.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border-0 ${
+                    isSel
+                      ? 'bg-blue-600 shadow-sm text-white'
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-900'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* STATS OVERVIEW PANEL */}
+      {/* 1. STATS DASHBOARD & CHARTS */}
       {currentTab === 'stats' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border bg-white p-5 shadow-xs dark:bg-zinc-900 dark:border-zinc-800">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Database Registered Users</span>
-              <h3 className="text-2xl font-bold font-mono text-gray-900 dark:text-zinc-100 mt-2">{users.length} Users</h3>
+            <div className="rounded-2xl border dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs text-left">
+              <span className="text-[9.5px] uppercase font-black tracking-wider text-slate-400 dark:text-zinc-500">Total Registered</span>
+              <h3 className="text-2xl font-black text-slate-800 dark:text-zinc-200 mt-2">{users.length} Creators</h3>
             </div>
-            <div className="rounded-2xl border bg-white p-5 shadow-xs dark:bg-zinc-900 dark:border-zinc-800">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Digital Store Directory</span>
-              <h3 className="text-2xl font-bold font-mono text-gray-900 dark:text-zinc-100 mt-2">{products.length} Products</h3>
+            <div className="rounded-2xl border dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs text-left">
+              <span className="text-[9.5px] uppercase font-black tracking-wider text-slate-400 dark:text-zinc-500">Products Listing</span>
+              <h3 className="text-2xl font-black text-slate-800 dark:text-zinc-200 mt-2">{products.length} Digital Assets</h3>
             </div>
-            <div className="rounded-2xl border bg-white p-5 shadow-xs dark:bg-zinc-900 dark:border-zinc-800">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Total Approved Cashouts</span>
-              <h3 className="text-2xl font-bold font-mono text-emerald-600 mt-2">₹{totalFinancialVolume.toFixed(2)}</h3>
+            <div className="rounded-2xl border dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs text-left">
+              <span className="text-[9.5px] uppercase font-black tracking-wider text-slate-400 dark:text-zinc-500">Approved Payout Volume</span>
+              <h3 className="text-2xl font-black text-green-600 dark:text-green-400 mt-2">₹{approvedVolume.toFixed(2)}</h3>
             </div>
-            <div className="rounded-2xl border bg-white p-5 shadow-xs dark:bg-zinc-900 dark:border-zinc-800">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Pending KYC Audits</span>
-              <h3 className="text-2xl font-bold font-mono text-amber-500 mt-2">
-                {kycRequests.filter(r => r.status === 'pending').length} Requests
-              </h3>
+            <div className="rounded-2xl border dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs text-left">
+              <span className="text-[9.5px] uppercase font-black tracking-wider text-slate-400 dark:text-zinc-500">Total Custom Pages</span>
+              <h3 className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2">{customPages.length} Pages</h3>
             </div>
           </div>
 
-          {/* Table representing pending cashout distributions */}
-          <div className="rounded-2xl border bg-white p-5 shadow-xs dark:bg-zinc-900 dark:border-zinc-800/80">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Pending Wallet Transfer Requests</h3>
+          {/* Interactive Charts Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Sales Volume / Revenue */}
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border dark:border-zinc-800 shadow-sm space-y-4">
+              <div className="border-b dark:border-zinc-800 pb-2 flex justify-between items-center">
+                <span className="text-xs font-extrabold text-slate-800 dark:text-zinc-200 uppercase tracking-wider block">Income & Sales (INR)</span>
+                <span className="text-[10px] bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded px-2 text-blue-700 dark:text-blue-400 font-bold font-mono">Week Performance</span>
+              </div>
+              <div className="h-64 h-full min-h-[220px]">
+                <ResponsiveContainer width="100%" height={230}>
+                  <AreaChart data={STATS_CHART_MOCK_DATA}>
+                    <defs>
+                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563EB" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} dy={8} />
+                    <YAxis stroke="#94A3B8" fontSize={9} dx={-8} />
+                    <Tooltip cursor={{ stroke: '#2563EB', strokeWidth: 1 }} />
+                    <Area type="monotone" dataKey="sales" name="Volume (₹)" stroke="#2563EB" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Traffic & User registers */}
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border dark:border-zinc-800 shadow-sm space-y-4">
+              <div className="border-b dark:border-zinc-800 pb-2 flex justify-between items-center">
+                <span className="text-xs font-extrabold text-slate-800 dark:text-zinc-200 uppercase tracking-wider block">Traffic & Registration Trends</span>
+                <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 rounded px-2 text-emerald-700 dark:text-emerald-400 font-bold font-mono">Real-time data</span>
+              </div>
+              <div className="h-64 h-full min-h-[220px]">
+                <ResponsiveContainer width="100%" height={230}>
+                  <BarChart data={STATS_CHART_MOCK_DATA}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} />
+                    <YAxis stroke="#94A3B8" fontSize={9} />
+                    <Tooltip />
+                    <Bar dataKey="users" name="Signups" fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="traffic" name="Active Hits (x10)" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending payouts ledger */}
+          <div className="rounded-3xl border dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm">
+            <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider mb-4 text-left">Pending Wallet Cashout Distributions</h3>
             {withdrawRequests.filter(r => r.status === 'pending').length === 0 ? (
-              <p className="text-xs text-gray-400 py-4 text-center">No cashout audits are outstanding.</p>
+              <p className="text-xs text-slate-400 dark:text-zinc-550 py-6 text-center">No outstanding cashback or commission cashouts audit requests.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-gray-500">
-                  <thead className="bg-gray-50 text-gray-700 dark:bg-zinc-800/50 dark:text-zinc-300 uppercase">
+              <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-zinc-800">
+                <table className="w-full text-left text-xs text-slate-500 dark:text-zinc-400">
+                  <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 uppercase font-black text-[10px]">
                     <tr>
-                      <th className="p-3">User</th>
-                      <th className="p-3">Gateway</th>
-                      <th className="p-3">Beneficiary Account</th>
-                      <th className="p-3">Cash Sum</th>
-                      <th className="p-3 text-right">Audit Action</th>
+                      <th className="p-3.5">User Handle</th>
+                      <th className="p-3.5">Gateway / Bank</th>
+                      <th className="p-3.5">Beneficiary Credentials</th>
+                      <th className="p-3.5">Transfer Sum</th>
+                      <th className="p-3.5 text-right">Fulfillment</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 text-slate-655 dark:text-zinc-300 font-medium">
                     {withdrawRequests.filter(r => r.status === 'pending').map(req => (
-                      <tr key={req.id}>
-                        <td className="p-3 font-semibold text-gray-900 dark:text-zinc-200">@{req.username}</td>
-                        <td className="p-3 text-gray-500">{req.method}</td>
-                        <td className="p-3 font-mono">{req.details}</td>
-                        <td className="p-3 font-bold text-red-650">₹{req.amount}</td>
-                        <td className="p-3 text-right">
+                      <tr key={req.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20">
+                        <td className="p-3.5 font-bold text-slate-900 dark:text-zinc-150">@{req.username}</td>
+                        <td className="p-3.5">{req.method}</td>
+                        <td className="p-3.5 font-mono">{req.details}</td>
+                        <td className="p-3.5 font-bold text-indigo-600 dark:text-indigo-400">₹{req.amount}</td>
+                        <td className="p-3.5 text-right font-sans">
                           <button
                             onClick={() => onApproveWithdrawal(req.id)}
-                            className="bg-emerald-600 font-semibold px-2.5 py-1 text-white rounded text-[10px]"
+                            className="bg-blue-600 font-extrabold px-3 py-1.5 text-white hover:bg-blue-700 rounded-lg text-[10.5px] transition border-0 cursor-pointer"
                           >
-                            Approve
+                            Disperse Ledger
                           </button>
                         </td>
                       </tr>
@@ -189,35 +458,37 @@ export default function AdminConsole({
         </div>
       )}
 
-      {/* USERS ACCOUNT LIST TAB */}
+      {/* 2. CREATORS/USERS MAP ACCOUNT TAB */}
       {currentTab === 'users' && (
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Platform Database Users</h3>
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider text-left font-sans">Registered Creators</h3>
+          <div className="overflow-x-auto rounded-xl border dark:border-zinc-800">
             <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 text-gray-700 dark:bg-zinc-800/50 dark:text-zinc-300 uppercase">
+              <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 uppercase font-bold text-[10px]">
                 <tr>
-                  <th className="p-3">Name</th>
-                  <th className="p-3">Username</th>
-                  <th className="p-3">Verified Status</th>
-                  <th className="p-3">Role</th>
-                  <th className="p-3">Created</th>
+                  <th className="p-3.5">Name</th>
+                  <th className="p-3.5">Username Handle</th>
+                  <th className="p-3.5">Verification</th>
+                  <th className="p-3.5">System Role</th>
+                  <th className="p-3.5">Date Joined</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-zinc-800 text-gray-500">
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 text-slate-600 dark:text-zinc-350 font-semibold font-sans">
                 {users.map(u => (
-                  <tr key={u.id}>
-                    <td className="p-3 font-bold text-gray-900 dark:text-zinc-200">{u.name}</td>
-                    <td className="p-3 font-mono">@{u.username}</td>
-                    <td className="p-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                        u.is_verified ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300' : 'bg-gray-100 text-gray-400 dark:bg-zinc-800'
+                  <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20">
+                    <td className="p-3.5 font-bold text-slate-900 dark:text-zinc-150">{u.name}</td>
+                    <td className="p-3.5 font-mono">@{u.username}</td>
+                    <td className="p-3.5">
+                      <span className={`rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase border ${
+                        u.is_verified 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50' 
+                          : 'bg-slate-50 text-slate-450 border-slate-100 dark:bg-zinc-950 dark:text-zinc-500 dark:border-zinc-800'
                       }`}>
                         {u.is_verified ? 'Verified Creator' : 'Standard'}
                       </span>
                     </td>
-                    <td className="p-3 capitalize">{u.role}</td>
-                    <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
+                    <td className="p-3.5 capitalize">{u.role}</td>
+                    <td className="p-3.5">{new Date(u.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -226,31 +497,29 @@ export default function AdminConsole({
         </div>
       )}
 
-      {/* KYC COMPLIANCE MANAGE TAB */}
+      {/* 3. KYC COMPLIANCE WORKFLOW */}
       {currentTab === 'kyc' && (
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Compliance KYC Verification Board</h3>
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider text-left">Compliance KYC Panel</h3>
           {kycRequests.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-8">All identity requests have been fully processed.</p>
+            <p className="text-xs text-slate-400 dark:text-zinc-550 text-center py-8">All identity validation requests have been processed.</p>
           ) : (
             <div className="space-y-4">
               {kycRequests.map(req => (
-                <div key={req.id} className="p-4 bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-gray-900 dark:text-zinc-100">{req.full_name}</span>
-                      <span className="font-mono text-xs text-gray-400">(@{req.username})</span>
+                <div key={req.id} className="p-5 bg-slate-50 dark:bg-zinc-950/40 border dark:border-zinc-800 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1.5 text-xs text-left">
+                    <div className="flex items-center gap-2 font-sans">
+                      <span className="font-extrabold text-slate-900 dark:text-zinc-100 text-sm">{req.full_name}</span>
+                      <span className="font-mono text-slate-400 dark:text-zinc-500">(@{req.username})</span>
                     </div>
-                    <div className="text-[11px] text-gray-500 grid grid-cols-2 gap-x-4 gap-y-1 max-w-sm font-mono leading-relaxed">
+                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 max-w-md font-mono">
                       <span>PAN: {req.pan_card}</span>
                       <span>Aadhaar: {req.aadhaar_card}</span>
-                      <span className="col-span-2">Address: {req.address}</span>
+                      <span className="col-span-1 sm:col-span-2">Address: {req.address}</span>
                     </div>
                     <div>
-                      <span className={`inline-block text-[10px] font-bold uppercase ${
-                        req.status === 'pending' ? 'text-amber-500' : req.status === 'approved' ? 'text-emerald-500' : 'text-rose-500'
-                      }`}>
-                        Status: {req.status}
+                      <span className="inline-block text-[9.5px] font-black uppercase text-indigo-600 dark:text-indigo-400 font-sans">
+                        Fulfillment: {req.status}
                       </span>
                     </div>
                   </div>
@@ -259,15 +528,15 @@ export default function AdminConsole({
                     <div className="flex gap-2">
                       <button
                         onClick={() => onRejectKYC(req.id)}
-                        className="rounded-xl border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 px-3 py-2 text-xs font-bold transition flex items-center gap-1 dark:bg-zinc-900 dark:border-rose-950 dark:text-rose-400"
+                        className="rounded-xl border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/20 px-3.5 py-2 text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer"
                       >
-                        Reject
+                        <X className="h-4 w-4" /> Reject
                       </button>
                       <button
                         onClick={() => onApproveKYC(req.id)}
-                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                        className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-bold transition flex items-center gap-1 active:scale-95 shadow-sm border-0 cursor-pointer"
                       >
-                        Approve
+                        <Check className="h-4 w-4" /> Approve Verifications
                       </button>
                     </div>
                   )}
@@ -278,129 +547,130 @@ export default function AdminConsole({
         </div>
       )}
 
-      {/* SHOP MANAGEMENT TAB */}
+      {/* 4. DIGITAL SHOP INVENTORY PRODUCTS APPENDS */}
       {currentTab === 'shop' && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
           {/* Append product form */}
-          <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 flex items-center gap-1 mb-4">
-              + Append Marketplace Product
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-5 shadow-sm lg:col-span-7">
+            <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider mb-4 flex items-center gap-1 text-left">
+              <Plus className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" /> Create Digital Asset Link
             </h3>
             
-            <form onSubmit={handleCreateProduct} className="space-y-4 text-xs font-medium">
-              <div>
-                <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Product Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Tiktok Marketing Handbook"
-                  value={newProdName}
-                  onChange={(e) => setNewProdName(e.target.value)}
-                  className="w-full rounded bg-gray-50 dark:bg-zinc-950 p-2 text-xs border border-gray-100 dark:border-zinc-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Catalog Description</label>
-                <textarea
-                  required
-                  placeholder="Insert fully-detailed descriptions here..."
-                  value={newProdDesc}
-                  onChange={(e) => setNewProdDesc(e.target.value)}
-                  className="w-full rounded bg-gray-50 dark:bg-zinc-950 p-2 text-xs border border-gray-100 dark:border-zinc-800 h-20 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleCreateProduct} className="space-y-4 text-xs font-bold text-slate-500 dark:text-zinc-400 text-left font-sans">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Price (INR)</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">Product Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. TikTok Reels Viral Blueprint"
+                    value={newProdName}
+                    onChange={(e) => setNewProdName(e.target.value)}
+                    className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 p-2.5 text-xs border border-slate-250 dark:border-zinc-800 focus:ring-1 focus:ring-blue-500 outline-none text-slate-800 dark:text-zinc-150 font-sans font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">Price (INR)</label>
                   <input
                     type="number"
                     required
                     value={newProdPrice}
                     onChange={(e) => setNewProdPrice(e.target.value)}
-                    className="w-full rounded bg-gray-50 dark:bg-zinc-950 p-2 text-xs border border-gray-100 dark:border-zinc-800"
+                    className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 p-2.5 text-xs border border-slate-250 dark:border-zinc-800 focus:ring-1 focus:ring-blue-500 outline-none text-slate-800 dark:text-zinc-150 font-sans font-medium"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider mb-1">Description</label>
+                <textarea
+                  required
+                  placeholder="Insert core template and growth benefits..."
+                  value={newProdDesc}
+                  onChange={(e) => setNewProdDesc(e.target.value)}
+                  className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 p-2.5 text-xs border border-slate-200 dark:border-zinc-800 h-20 resize-none focus:ring-1 focus:ring-blue-500 outline-none text-slate-800 dark:text-zinc-150 leading-relaxed font-semibold font-sans animate-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Section Category</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">Category Selector</label>
                   <select
                     value={newProdCategory}
                     onChange={(e) => setNewProdCategory(e.target.value)}
-                    className="w-full rounded bg-white dark:bg-zinc-950 p-2 border border-gray-100 dark:border-zinc-800"
+                    className="w-full rounded-xl bg-white dark:bg-zinc-950 p-2.5 text-xs border border-slate-205 dark:border-zinc-800 focus:outline-none text-slate-800 dark:text-zinc-200"
                   >
                     <option value="E-Books">E-Books</option>
                     <option value="Design Templates">Design Templates</option>
                     <option value="Affiliate Services">Affiliate Services</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Inventory Mode</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">Delivery Fulfillment</label>
                   <select
                     value={newProdType}
                     onChange={(e) => setNewProdType(e.target.value as any)}
-                    className="w-full rounded bg-white dark:bg-zinc-950 p-2 border border-gray-100 dark:border-zinc-800"
+                    className="w-full rounded-xl bg-white dark:bg-zinc-950 p-2.5 text-xs border border-slate-205 dark:border-zinc-800 focus:outline-none text-slate-800 dark:text-zinc-200"
                   >
-                    <option value="digital_download">Direct Digital File</option>
-                    <option value="affiliate_product">External Affiliate Card</option>
+                    <option value="digital_download">Direct File Download link</option>
+                    <option value="affiliate_product">External Affiliate redirection</option>
                   </select>
-                </div>
-                <div>
-                  <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Mock Image Link</label>
-                  <input
-                    type="text"
-                    value={newProdImg}
-                    onChange={(e) => setNewProdImg(e.target.value)}
-                    className="w-full rounded bg-gray-50 dark:bg-zinc-950 p-2 text-xs border border-gray-100 dark:border-zinc-800"
-                  />
                 </div>
               </div>
 
               {newProdType === 'digital_download' ? (
                 <div>
-                  <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">Direct Download URL</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">Direct Download File URL / Zip Link</label>
                   <input
                     type="text"
                     value={newProdUrl}
                     onChange={(e) => setNewProdUrl(e.target.value)}
-                    className="w-full rounded bg-gray-50 dark:bg-zinc-950 p-2 text-xs border border-gray-100 dark:border-zinc-800"
+                    className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-200 focus:outline-none font-mono"
                   />
                 </div>
               ) : (
                 <div>
-                  <label className="block text-gray-400 uppercase tracking-widest font-bold mb-1">External Affiliate Redirect Link</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">External Affiliate referral URL</label>
                   <input
                     type="text"
-                    placeholder="https://affiliate.com/referral-id"
+                    placeholder="https://affiliates.com/track-id"
                     value={newProdAffUrl}
                     onChange={(e) => setNewProdAffUrl(e.target.value)}
-                    className="w-full rounded bg-gray-50 dark:bg-zinc-950 p-2 text-xs border border-gray-100 dark:border-zinc-800"
+                    className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-205 focus:outline-none"
                   />
                 </div>
               )}
 
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider mb-1">Asset Cover graphic Image link</label>
+                <input
+                  type="text"
+                  value={newProdImg}
+                  onChange={(e) => setNewProdImg(e.target.value)}
+                  className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-205 focus:outline-none font-mono"
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs font-bold text-white shadow-sm"
+                className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 py-3 text-xs font-bold text-white shadow-sm flex items-center justify-center gap-1.5 border-0 cursor-pointer"
               >
-                Assemble New Product Link
+                <Plus className="h-4 w-4" /> Assemble Store Product Card
               </button>
             </form>
           </div>
 
-          {/* Current catalog preview */}
-          <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Direct Store Showcase ({products.length} Items)</h3>
-            <div className="space-y-3.5 max-h-[460px] overflow-y-auto">
+          {/* Current products list */}
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-5 shadow-sm lg:col-span-5 space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider text-left">Active Inventory ({products.length} assets)</h3>
+            <div className="space-y-3.5 max-h-[460px] overflow-y-auto pr-1">
               {products.map(p => (
-                <div key={p.id} className="flex gap-3 items-center border-b pb-3 border-gray-50 dark:border-zinc-800/20">
-                  <img referrerPolicy="no-referrer" src={p.image_url} alt={p.name} className="h-10 w-10 object-cover rounded bg-zinc-100" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block font-bold text-xs truncate text-gray-900 dark:text-zinc-101">{p.name}</span>
-                    <span className="block text-[10px] text-gray-400 capitalize">{p.category} • ₹{p.price}</span>
+                <div key={p.id} className="flex gap-3 items-center border-b dark:border-zinc-800 pb-3 mt-1 text-left font-sans">
+                  <img referrerPolicy="no-referrer" src={p.image_url} alt={p.name} className="h-10 w-10 object-cover rounded bg-slate-50 dark:bg-zinc-950 border dark:border-zinc-800" />
+                  <div className="flex-1 min-w-0 text-xs">
+                    <span className="block font-bold text-slate-850 dark:text-zinc-200 truncate">{p.name}</span>
+                    <span className="block text-[9.5px] text-slate-400 dark:text-zinc-500 font-mono">{p.category} • ₹{p.price}</span>
                   </div>
                 </div>
               ))}
@@ -409,38 +679,695 @@ export default function AdminConsole({
         </div>
       )}
 
-      {/* CORE COMMISSION SETTINGS TAB */}
-      {currentTab === 'settings' && (
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5 shadow-xs max-w-md">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4 flex items-center gap-1.5">
-            <Settings className="h-4.5 w-4.5" /> Commission Allocation Engine
-          </h3>
+      {/* 5. BRANDING & CONTACT SETTINGS */}
+      {currentTab === 'branding' && (
+        <div id="website-setting-wrap" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Affiliate Sales Commission Rate (%)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={commissionRateVal}
-                  onChange={(e) => setCommissionRateVal(e.target.value)}
-                  className="rounded-xl bg-gray-50 dark:bg-zinc-950 px-3 py-2 border border-gray-100 dark:border-zinc-800 w-24 text-xs font-mono font-bold"
-                />
-                <button
-                  onClick={saveCommissionSetting}
-                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 text-xs"
-                >
-                  Apply rates
-                </button>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm lg:col-span-8 space-y-6">
+            <div className="flex items-center justify-between border-b dark:border-zinc-800 pb-4">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5 text-left">
+                <Settings className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" /> Branding, Metadata, & Core Settings
+              </h3>
+              <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-55/60 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full font-bold">
+                Live Preview Enabled
+              </span>
+            </div>
+
+            <form onSubmit={handleUpdateBranding} className="space-y-6 text-xs text-slate-500 dark:text-zinc-400 font-bold text-left">
+              
+              {/* BRAND BASIC INFO */}
+              <div className="space-y-3 font-sans text-slate-600 dark:text-zinc-300">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 dark:border-indigo-405 pl-2 font-bold">Basic Brand Profiling</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans font-medium">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Company / Website Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Slogan Tagline</label>
+                    <input
+                      type="text"
+                      required
+                      value={brandTagline}
+                      onChange={(e) => setBrandTagline(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* DRAG AND DROP ASSETS UPLOADERS */}
+              <div className="space-y-4 font-sans text-slate-600 dark:text-zinc-300">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 dark:border-indigo-405 pl-2 font-bold">Website Asset Assets Management</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+                  {/* Website Logo Dropzone */}
+                  <div className="space-y-2">
+                    <label className="block text-[9px] uppercase tracking-wider">Website Main Logo</label>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setLogoDragOver(true); }}
+                      onDragLeave={() => setLogoDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setLogoDragOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          handleLogoFile(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[140px] ${
+                        logoDragOver ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 hover:bg-slate-50'
+                      }`}
+                      onClick={() => document.getElementById('logo-file-picker')?.click()}
+                    >
+                      <input
+                        type="file"
+                        id="logo-file-picker"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleLogoFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      {brandLogo ? (
+                        <div className="space-y-2 flex flex-col items-center">
+                          <img referrerPolicy="no-referrer" src={brandLogo} alt="Logo preview" className="h-10 max-w-[120px] object-contain rounded" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold select-none">Active • Click or drop to replace</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 flex flex-col items-center text-slate-400 dark:text-zinc-500">
+                          <Upload className="h-6 w-6 stroke-[1.8px] text-indigo-500 dark:text-indigo-400 animate-bounce animate-none" />
+                          <span className="text-[10px] font-bold">Drag and drop Logo file</span>
+                          <span className="text-[9px] opacity-75">Supports PNG, SVG, JPG, WEBP (or click to pick)</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Or override using Image Link/URL"
+                        value={brandLogo}
+                        onChange={(e) => setBrandLogo(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-850 p-2 text-[10px] font-mono text-slate-705 dark:text-zinc-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Website Favicon Dropzone */}
+                  <div className="space-y-2">
+                    <label className="block text-[9px] uppercase tracking-wider">Website Favicon (.ico/png)</label>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setFavDragOver(true); }}
+                      onDragLeave={() => setFavDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setFavDragOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          handleFaviconFile(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[140px] ${
+                        favDragOver ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 hover:bg-slate-50'
+                      }`}
+                      onClick={() => document.getElementById('favicon-file-picker')?.click()}
+                    >
+                      <input
+                        type="file"
+                        id="favicon-file-picker"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleFaviconFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      {brandFavicon ? (
+                        <div className="space-y-2 flex flex-col items-center">
+                          <img referrerPolicy="no-referrer" src={brandFavicon} alt="Favicon preview" className="h-8 w-8 object-contain rounded" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold select-none">Active • Click or drop to replace</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 flex flex-col items-center text-slate-400 dark:text-zinc-500">
+                          <Upload className="h-6 w-6 stroke-[1.8px] text-indigo-500 dark:text-indigo-400 animate-bounce animate-none" />
+                          <span className="text-[10px] font-bold">Drag and drop Favicon</span>
+                          <span className="text-[9px] opacity-75 font-medium">Supports .ico, PNG sizes 32x32</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Or override using Favicon URL"
+                        value={brandFavicon}
+                        onChange={(e) => setBrandFavicon(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-850 p-2 text-[10px] font-mono text-slate-705 dark:text-zinc-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 font-sans text-slate-650 dark:text-zinc-300 font-medium">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Footer/Drawer Logo URL (Secondary)</label>
+                    <input
+                      type="text"
+                      placeholder="https://example.com/logo-footer.png"
+                      value={brandFooterLogo}
+                      onChange={(e) => setBrandFooterLogo(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-205 p-2.5 text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* MODULE SPECIFIC PLATFORM LOGOS */}
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-zinc-800 font-sans text-slate-600 dark:text-zinc-300 font-medium">
+                  <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-emerald-500 pl-2 font-bold">
+                    Module Logo Overrides (Dynamic Header Change)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium font-sans">
+                    Configure custom branding logos for each separate application module. When a user switches tabs, the respective logo replaces the header standard brand logo instantly.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 font-sans font-medium text-left">
+                    {/* Sugora Chat Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-100 dark:border-zinc-850">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">💬 Sugora Chat Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/chat-logo.png"
+                        value={logoSugoraChat}
+                        onChange={(e) => setLogoSugoraChat(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2 text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-indigo-505 text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraChat && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraChat} alt="Chat dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">Live Header Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AI Chat Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-100 dark:border-zinc-850">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">✨ AI Copilot Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/ai-logo.png"
+                        value={logoAIChat}
+                        onChange={(e) => setLogoAIChat(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2 text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-indigo-505 text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoAIChat && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoAIChat} alt="AI dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">Live Header Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sugora Tree Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-100 dark:border-zinc-850">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">🌿 Sugora Tree Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/tree-logo.png"
+                        value={logoSugoraTree}
+                        onChange={(e) => setLogoSugoraTree(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2 text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-indigo-505 text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraTree && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraTree} alt="Tree dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">Live Header Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sugora Shop Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-100 dark:border-zinc-850">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">🛒 Sugora Shop Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/shop-logo.png"
+                        value={logoSugoraShop}
+                        onChange={(e) => setLogoSugoraShop(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2 text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-indigo-505 text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraShop && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraShop} alt="Shop dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">Live Header Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sugora Apps Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-100 dark:border-zinc-850">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">📱 Sugora Apps Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/apps-logo.png"
+                        value={logoSugoraApps}
+                        onChange={(e) => setLogoSugoraApps(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2 text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-indigo-505 text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraApps && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraApps} alt="Apps dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">Live Header Preview</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CORE SEO & SYSTEM METADATA */}
+              <div className="space-y-3 font-sans text-slate-600 dark:text-zinc-300 font-semibold text-left">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 pl-2 font-bold font-sans">SEO Engine & Metadata Settings</h4>
+                <div className="space-y-3 bg-slate-50/50 dark:bg-zinc-950/20 p-4 rounded-2xl border border-slate-100 dark:border-zinc-800 font-sans font-medium">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">Meta Keywords (SEO Indexing, Comma-Separated)</label>
+                    <input
+                      type="text"
+                      value={brandKeywords}
+                      onChange={(e) => setBrandKeywords(e.target.value)}
+                      className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans font-semibold"
+                      placeholder="sugora, wallet portal, automated chat"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 font-sans">
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">Open Graph / Facebook Title</label>
+                      <input
+                        type="text"
+                        value={brandOgTitle}
+                        onChange={(e) => setBrandOgTitle(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-805 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider mb-1 font-sans font-bold">Open Graph Core Image URL</label>
+                      <input
+                        type="text"
+                        value={brandOgImage}
+                        onChange={(e) => setBrandOgImage(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-805 dark:text-zinc-105 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold font-sans">Open Graph Page Description</label>
+                    <textarea
+                      value={brandOgDesc}
+                      onChange={(e) => setBrandOgDesc(e.target.value)}
+                      className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 h-16 resize-none text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-505 font-medium font-sans"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* COMMUNICATIONS & CONTACTS */}
+              <div className="space-y-3 font-sans text-slate-650 dark:text-zinc-350 font-medium text-left">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 pl-2 font-bold font-sans">Corporate Contacts & Channels</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans font-medium">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">Support Contact Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={brandEmail}
+                      onChange={(e) => setBrandEmail(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-sans font-bold">Corporate Phone Hotline</label>
+                    <input
+                      type="text"
+                      value={brandPhone}
+                      onChange={(e) => setBrandPhone(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-850 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold text-left">WhatsApp Broadcast Link / Group URL</label>
+                    <input
+                      type="text"
+                      value={brandWhatsapp}
+                      onChange={(e) => setBrandWhatsapp(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-501"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">Corporate Office HQ Address</label>
+                    <input
+                      type="text"
+                      value={brandAddress}
+                      onChange={(e) => setBrandAddress(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-501"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SOCIAL MEDIA HANDLES (Propagates dynamically into footer) */}
+              <div className="space-y-3 font-sans text-slate-650 dark:text-zinc-300 font-medium text-left">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 pl-2 font-bold font-sans">Global Social Media Configurations</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans font-medium">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold text-left">Instagram Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://instagram.com/handle"
+                      value={brandSocialInstagram}
+                      onChange={(e) => setBrandSocialInstagram(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">Facebook Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://facebook.com/handle"
+                      value={brandSocialFacebook}
+                      onChange={(e) => setBrandSocialFacebook(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">Twitter / X Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://twitter.com/handle"
+                      value={brandSocialTwitter}
+                      onChange={(e) => setBrandSocialTwitter(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold">LinkedIn Business Profile Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://linkedin.com/company/handle"
+                      value={brandSocialLinkedin}
+                      onChange={(e) => setBrandSocialLinkedin(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold text-left">YouTube Channel URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://youtube.com/c/handle"
+                      value={brandSocialYoutube}
+                      onChange={(e) => setBrandSocialYoutube(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1 font-bold text-left font-sans">TikTok handle Link</label>
+                    <input
+                      type="text"
+                      placeholder="https://tiktok.com/@handle"
+                      value={brandSocialTiktok}
+                      onChange={(e) => setBrandSocialTiktok(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-805 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SAVE BUTTON */}
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 py-3 text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 border-0 cursor-pointer"
+              >
+                <Check className="h-4.5 w-4.5" /> Save Website Configurations
+              </button>
+            </form>
+          </div>
+
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Live Web Branding Card Preview */}
+            <div className="bg-gradient-to-tr from-indigo-50 to-indigo-10/20 dark:from-[#111322] dark:to-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
+              <h3 className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest text-left">Branding Card Preview</h3>
+              <div className="bg-white dark:bg-zinc-950 border dark:border-zinc-850 rounded-2xl p-4 shadow-xs flex flex-col items-center justify-center text-center space-y-3.5 select-none font-sans">
+                {brandLogo ? (
+                  <img src={brandLogo} referrerPolicy="no-referrer" alt="Rendered header logo preview" className="h-10 w-auto object-contain max-w-[170px]" />
+                ) : (
+                  <SugoraLogo className="h-10" />
+                )}
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-100 leading-tight">{brandName || 'Sugora Link Portal'}</h4>
+                  <p className="text-[10px] font-bold text-indigo-500/80 uppercase tracking-wider font-mono mt-0.5">{brandTagline || 'Turn Time into Value'}</p>
+                </div>
+                <div className="text-[9.5px] leading-relaxed text-slate-450 dark:text-zinc-400 mt-1 border-t dark:border-zinc-800 pt-2 w-full">
+                  {brandDesc || 'No global description registered. Insert custom summaries to bolster Google page indexes.'}
+                </div>
+                <div className="w-full bg-slate-50/50 dark:bg-zinc-900/40 p-2 text-left rounded-lg text-[9px] font-mono leading-relaxed border dark:border-zinc-800 space-y-1">
+                  <div><strong className="text-slate-600 dark:text-zinc-400">Email:</strong> {brandEmail}</div>
+                  <div><strong className="text-slate-600 dark:text-zinc-400">Phone:</strong> {brandPhone}</div>
+                  <div><strong className="text-slate-600 dark:text-zinc-400">Whatsapp:</strong> {brandWhatsapp}</div>
+                  <div><strong className="text-slate-600 dark:text-zinc-400 font-sans">HQ address:</strong> {brandAddress}</div>
+                </div>
               </div>
             </div>
 
-            <div className="text-[11px] text-gray-500 leading-relaxed bg-amber-50/50 p-3.5 rounded-xl border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/40">
-              System notice: modifying the commission allocation targets rewards real-time affiliate transfers for subsequent marketplace checkouts dynamically.
+            {/* Sales commission adjustments */}
+            <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5 mb-1 text-left font-sans">
+                <Smartphone className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400 animate-none" /> Affiliate baseline rate
+              </h3>
+
+              <div className="space-y-4 text-left">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">Universal Commission Percentage (%)</label>
+                  <div className="flex gap-2 font-sans font-medium">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={commissionRateVal}
+                      onChange={(e) => setCommissionRateVal(e.target.value)}
+                      className="rounded-xl bg-slate-50 dark:bg-zinc-950 px-3.5 py-2.5 border border-slate-205 dark:border-zinc-800 w-24 text-xs font-mono font-bold text-slate-804 dark:text-zinc-150 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <button
+                      onClick={saveCommissionSetting}
+                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 text-xs border-0 cursor-pointer active:scale-95 transition"
+                    >
+                      Update Rates
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-[10.5px] text-slate-400 dark:text-zinc-500 leading-relaxed bg-slate-50 dark:bg-zinc-955 p-3 rounded-xl border dark:border-zinc-800 font-medium">
+                  System warning: modifying active universal coefficients recalibrates current KYC and wallet withdrawal metrics instantaneously in the background.
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 6. CUSTOM PAGE BUILDER (DYNAMIC LAYOUT CREATOR) */}
+      {currentTab === 'pages' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+            <div className="text-left font-sans">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-505">Dynamic Page Builder</h3>
+              <p className="text-[10.5px] text-slate-400 dark:text-zinc-500 mt-1 leading-relaxed font-semibold">Publish landing copies, terms, or about pages dynamically.</p>
+            </div>
+            <button
+              onClick={() => setShowPageForm(!showPageForm)}
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 font-extrabold text-xs text-white py-2.5 px-4 flex items-center gap-1.5 transition whitespace-nowrap border-0 cursor-pointer"
+            >
+              <Layout className="h-4.5 w-4.5" />
+              <span>{showPageForm ? 'Review Catalog' : 'Add Custom Page'}</span>
+            </button>
+          </div>
+
+          {/* New Page Form */}
+          {showPageForm ? (
+            <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider mb-4 text-left">Draft Custom Page</h3>
+              
+              <form onSubmit={handleCreateCustomPage} className="space-y-4 text-xs font-bold text-slate-505 dark:text-zinc-400 text-left font-sans">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Page Title</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Terms of Use Agreement"
+                      value={pageTitle}
+                      onChange={(e) => {
+                        setPageTitle(e.target.value);
+                        setPageSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+                      }}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-950 p-2.5 text-xs border border-slate-205 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Public URL Path Slug</label>
+                    <div className="flex items-center bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-205 dark:border-zinc-808 px-3">
+                      <span className="text-[10.5px] text-slate-400 dark:text-zinc-550 font-mono select-none">/p/</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="terms-agreement"
+                        value={pageSlug}
+                        onChange={(e) => setPageSlug(e.target.value)}
+                        className="bg-transparent border-none py-2.5 pl-1 text-slate-808 dark:text-zinc-200 focus:outline-none w-full font-mono text-[10.5px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">SEO Title Header</label>
+                    <input
+                      type="text"
+                      placeholder="Custom browser tab title..."
+                      value={pageSeoTitle}
+                      onChange={(e) => setPageSeoTitle(e.target.value)}
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-501 font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1">Template Aesthetic Layout</label>
+                    <select
+                      value={pageTemplate}
+                      onChange={(e) => setPageTemplate(e.target.value)}
+                      className="w-full rounded-xl bg-white dark:bg-zinc-950 border p-2.5 text-slate-800 dark:text-zinc-200 focus:outline-none"
+                    >
+                      <option value="standard">Standard simple article layout</option>
+                      <option value="landing">Premium conversions sales layout</option>
+                      <option value="support">Compliance / legal details sheet</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">SEO Meta Description tag</label>
+                  <input
+                    type="text"
+                    placeholder="Provide short search engine summaries..."
+                    value={pageSeoDesc}
+                    onChange={(e) => setPageSeoDesc(e.target.value)}
+                    className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 border border-slate-205 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-505 font-sans"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1">Interactive Page Content (HTML & Markdown friendly)</label>
+                  <textarea
+                    required
+                    placeholder="<h1>Dynamic Agreement</h1><p>Introduce content blocks here...</p>"
+                    value={pageContent}
+                    onChange={(e) => setPageContent(e.target.value)}
+                    className="w-full rounded-xl bg-slate-50 dark:bg-zinc-955 border border-slate-205 dark:border-zinc-800 p-3 h-52 resize-none text-slate-800 dark:text-zinc-200 font-mono text-[10.5px] leading-relaxed leading-snug font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-zinc-950/40 p-3 rounded-2xl border dark:border-zinc-800 font-sans">
+                  <div className="flex gap-2 items-center">
+                    <span className="text-[10px] text-slate-450 uppercase font-black tracking-wide font-sans">Publish Status:</span>
+                    <select
+                      value={pageStatus}
+                      onChange={(e) => setPageStatus(e.target.value as any)}
+                      className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded text-[10px] px-1 font-bold outline-none text-slate-800 dark:text-zinc-200"
+                    >
+                      <option value="Published">Published (Live instantly)</option>
+                      <option value="Draft">Draft Save (Private)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setShowPageForm(false); setEditingPage(null); }} className="px-4 py-2 border dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-550 dark:text-zinc-400 font-bold cursor-pointer">Cancel</button>
+                    <button type="submit" className="px-4.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold flex items-center gap-1 shadow-sm border-0 cursor-pointer">
+                      <Check className="h-4 w-4" /> {editingPage ? 'Save Changes' : 'Publish Page'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          ) : (
+            /* Pages catalog list */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {customPages.map(page => (
+                <div key={page.id} className="group bg-white dark:bg-zinc-900 rounded-3xl p-5 border dark:border-zinc-800 shadow-sm flex flex-col justify-between hover:border-indigo-300 dark:hover:border-indigo-800 transition duration-150 text-left font-sans">
+                  <div>
+                    <div className="flex justify-between items-start mb-2.5">
+                      <span className="rounded-xl bg-indigo-10 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-400 font-extrabold text-[9px] uppercase px-2.5 py-1">
+                        /p/{page.slug}
+                      </span>
+
+                      <span className={`rounded-xl px-2 py-0.5 text-[9px] font-extrabold uppercase border ${
+                        page.status === 'Published' 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-990/40' 
+                          : 'bg-slate-100 text-slate-400 border-slate-150 dark:bg-zinc-950 dark:text-zinc-500 dark:border-zinc-800'
+                      }`}>
+                        {page.status}
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-black text-slate-900 dark:text-zinc-150 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{page.title}</h4>
+                    <p className="text-[10.5px] text-slate-400 dark:text-zinc-500 mt-1 lines-clamp-3 block font-semibold">{page.seo_description || 'No meta index description logged.'}</p>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t dark:border-zinc-800 flex justify-between items-center shrink-0">
+                    <span className="text-[9.5px] text-slate-400 dark:text-zinc-500 font-mono">Template: {page.template}</span>
+                    
+                    <div className="flex items-center gap-1.5 font-sans">
+                      <button
+                        onClick={() => handleEditPageInitiate(page)}
+                        className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-zinc-950 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-300 flex items-center justify-center border dark:border-zinc-800 transition cursor-pointer"
+                        title="Edit Page"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        onClick={() => onDeleteCustomPage(page.slug)}
+                        className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-zinc-950 hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 dark:text-zinc-500 dark:hover:text-red-400 flex items-center justify-center border dark:border-zinc-805 transition cursor-pointer"
+                        title="Delete Page"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {customPages.length === 0 && (
+                <div className="md:col-span-2 text-center py-10 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl text-slate-400 dark:text-zinc-550 font-bold font-sans">
+                  No dynamic pages found. Click "Add Custom Page" to create.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

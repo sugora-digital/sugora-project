@@ -218,6 +218,11 @@ export interface WebsiteSettings {
   logo_url: string;
   favicon_url: string;
   footer_logo_url?: string;
+  logo_sugora_chat?: string;
+  logo_ai_chat?: string;
+  logo_sugora_tree?: string;
+  logo_sugora_shop?: string;
+  logo_sugora_apps?: string;
   tagline?: string;
   email?: string;
   phone?: string;

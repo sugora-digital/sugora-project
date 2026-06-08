@@ -43,7 +43,7 @@ import SugoraLogo from '../components/SugoraLogo';
 import { supabase } from '../lib/supabase';
 
 export default function Home() {
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
@@ -234,6 +234,14 @@ export default function Home() {
   // Seed default transaction history
   useEffect(() => {
     setTransactionsList(INITIAL_TRANSACTIONS('wallet-current'));
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sugora_theme_pref');
+      if (saved) {
+        setIsDarkMode(saved === 'dark');
+      } else {
+        setIsDarkMode(false);
+      }
+    }
   }, []);
 
   // Sync Dark mode styles
@@ -1016,7 +1024,11 @@ export default function Home() {
               {/* Header Right togglers */}
               <div className="flex items-center gap-4">
                 <button
-                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  onClick={() => {
+                    const nextVal = !isDarkMode;
+                    setIsDarkMode(nextVal);
+                    localStorage.setItem('sugora_theme_pref', nextVal ? 'dark' : 'light');
+                  }}
                   className="p-2 text-zinc-405 hover:text-zinc-900 dark:hover:text-zinc-100 transition rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/30 cursor-pointer"
                 >
                   {isDarkMode ? <Sun className="h-4.5 w-4.5 text-amber-500" /> : <Moon className="h-4.5 w-4.5 text-zinc-700" />}
@@ -1158,7 +1170,7 @@ export default function Home() {
               </nav>
 
               {/* CORE RENDERING VIEWSPACE PORTAL */}
-              <main id="main-content-panels" className="flex-grow p-6 md:p-8 overflow-y-auto max-w-full font-sans">
+              <main id="main-content-panels" className="flex-grow p-6 md:p-8 pb-20 md:pb-8 overflow-y-auto max-w-full font-sans">
                 <div className="max-w-5xl mx-auto h-full font-sans animate-fade-in">
                   {activeTab === 'dashboard' && (
                     <Dashboard
@@ -1246,6 +1258,46 @@ export default function Home() {
               </main>
 
             </div>
+
+            {/* FIXED MOBILE/TABLET BOTTOM NAVIGATION BAR (Icons only, glow styles, glassmorphism) */}
+            {profile && profile.role === 'user' && (
+              <div className="md:hidden fixed bottom-3 inset-x-4 bg-white/70 dark:bg-[#0c0d12]/75 backdrop-blur-xl border border-slate-250/50 dark:border-zinc-800/60 py-2.5 px-3 flex justify-around items-center z-40 shadow-[0_-8px_32px_rgba(0,0,0,0.06)] rounded-2xl select-none max-w-lg mx-auto">
+                {[
+                  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, gradients: 'from-blue-500 via-indigo-500 to-cyan-500', glow: 'shadow-[0_0_15px_rgba(147,197,253,0.55)]' },
+                  { id: 'tree', label: 'Sugora Tree', icon: Share2, gradients: 'from-rose-500 via-pink-500 to-red-500', glow: 'shadow-[0_0_15px_rgba(244,63,94,0.55)]' },
+                  { id: 'chat', label: 'Sugora Chat', icon: MessageSquare, gradients: 'from-emerald-500 via-teal-500 to-cyan-500', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.55)]' },
+                  { id: 'shop', label: 'Sugora Shop', icon: ShoppingBag, gradients: 'from-amber-500 via-orange-500 to-yellow-500', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.55)]' },
+                  { id: 'apps', label: 'Sugora Apps', icon: AppWindow, gradients: 'from-violet-500 via-fuchsia-500 to-indigo-500', glow: 'shadow-[0_0_15px_rgba(139,92,246,0.55)]' },
+                  { id: 'ai', label: 'AI Chat', icon: Sparkles, gradients: 'from-purple-500 via-indigo-500 to-violet-500', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.55)]' },
+                  { id: 'wallet', label: 'Wallet', icon: Wallet, gradients: 'from-slate-500 via-zinc-500 to-neutral-500', glow: 'shadow-[0_0_15px_rgba(100,116,139,0.55)]' }
+                ].map((tab) => {
+                  const IconComp = tab.icon;
+                  const isSelected = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center justify-center transition-all duration-350 cursor-pointer h-11 w-11 rounded-xl relative ${
+                        isSelected 
+                          ? `bg-gradient-to-tr ${tab.gradients} text-white scale-110 -translate-y-1 ${tab.glow}` 
+                          : 'text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-350 hover:bg-slate-50 dark:hover:bg-zinc-900/40'
+                      }`}
+                      title={tab.label}
+                    >
+                      <IconComp className={`h-5 w-5 transition-transform ${isSelected ? 'scale-110 stroke-[2.3px]' : 'stroke-[1.8px] hover:scale-110'}`} />
+                      {isSelected && (
+                        <span className="absolute bottom-1 h-1 w-1 rounded-full bg-white shadow-xs animate-ping" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
           </div>
         </>
       )}
