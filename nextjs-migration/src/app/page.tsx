@@ -1006,37 +1006,6 @@ export default function Home() {
       ) : (
         /* CORE ACTIVE CHASSIS LAYOUT */
         <>
-          {/* TOP ADMIN QUICK MULTI-ROLE SWITCHER BAR */}
-          <div className="bg-[#090b0e] text-zinc-100 py-2.5 px-6 flex flex-col md:flex-row items-center justify-between text-xs sticky top-0 z-30 border-b border-zinc-800/60 backdrop-blur-md font-sans">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-bold text-emerald-400 uppercase tracking-widest font-mono text-[9px]">HUD Switcher:</span>
-              <div className="flex gap-1.5">
-                {[
-                  { role: 'user', label: 'User Node' },
-                  { role: 'support', label: 'Support Desk (Sarah)' },
-                  { role: 'admin', label: 'System CEO (Alex)' }
-                ].map(r => (
-                  <button
-                    key={r.role}
-                    onClick={() => handleToggleRoleScope(r.role as any)}
-                    className={`rounded-lg px-3 py-1 text-[10px] font-bold transition-all duration-150 cursor-pointer ${
-                      profile.role === r.role
-                        ? 'bg-emerald-600/90 text-white shadow-sm ring-1 ring-emerald-500/20'
-                        : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 border border-zinc-800/80'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-1 md:mt-0 flex items-center gap-2 text-zinc-400 text-[10px] font-mono">
-              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Active Scope: <span className="font-bold text-emerald-400">@{profile.username}</span> • <span className="text-zinc-300 font-bold uppercase">{profile.role} account</span></span>
-            </div>
-          </div>
-
           {/* MASTER USER LANDSCAPE INTERFACE */}
           <div className="flex-1 flex flex-col font-sans">
             <header id="main-global-header" className="bg-white border-b border-zinc-200/50 px-6 py-3.5 dark:bg-[#0d0f12]/90 dark:border-zinc-800 flex items-center justify-between z-10 shrink-0 font-sans">
