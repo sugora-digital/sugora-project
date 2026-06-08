@@ -1327,7 +1327,7 @@ export default function App() {
                     {!isSignInMode && (
                       <button
                         type="button"
-                        onClick={handleGoogleSignInMock}
+                        onClick={() => handleGoogleSignInMock()}
                         className="w-full py-3 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center gap-2.5 text-xs font-bold transition shadow-xs cursor-pointer active:scale-98"
                       >
                         <img src="https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&q=80&w=35" className="h-4.5 w-4.5 object-contain" alt="Google logo icon" />

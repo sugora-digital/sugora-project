@@ -52,7 +52,7 @@ export default function Home() {
   const [roleInput, setRoleInput] = useState<'user' | 'support' | 'admin'>('user');
 
   // Admin and Support active sub-states for direct sidebar routing
-  const [adminSubTab, setAdminSubTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
+  const [adminSubTab, setAdminSubTab] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings'>('stats');
   const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'assigned' | 'resolved'>('all');
 
   const navigateTo = (path: string) => {
