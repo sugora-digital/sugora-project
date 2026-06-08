@@ -88,7 +88,8 @@ export const INITIAL_MOCK_USERS: Profile[] = [
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
     role: 'admin',
     created_at: new Date(Date.now() - 30 * 24 * 3600000).toISOString(),
-    is_verified: true
+    is_verified: true,
+    phone: '+91 99999 88888'
   },
   {
     id: 'user-johndoe',
@@ -98,7 +99,8 @@ export const INITIAL_MOCK_USERS: Profile[] = [
     avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150',
     role: 'user',
     created_at: new Date(Date.now() - 15 * 24 * 3600000).toISOString(),
-    is_verified: false
+    is_verified: false,
+    phone: '+91 98765 43210'
   },
   {
     id: 'support-agent',
@@ -108,7 +110,8 @@ export const INITIAL_MOCK_USERS: Profile[] = [
     avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150',
     role: 'support',
     created_at: new Date(Date.now() - 20 * 24 * 3600000).toISOString(),
-    is_verified: true
+    is_verified: true,
+    phone: '+91 11223 34455'
   }
 ];
 

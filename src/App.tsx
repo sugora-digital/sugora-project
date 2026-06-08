@@ -78,9 +78,17 @@ import {
 } from './lib/supabaseClient';
 
 export default function App() {
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sugora_theme_pref');
+      if (saved) return saved === 'dark';
+    }
+    return false;
+  });
+  const [activeTab, setActiveTab] = useState<string>('chat');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState<boolean>(false);
+  const [earnCoinsModalOpen, setEarnCoinsModalOpen] = useState<boolean>(false);
 
   // Authentication Onboarding State
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -181,6 +189,11 @@ export default function App() {
     logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
     favicon_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
     footer_logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+    logo_sugora_chat: 'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&q=80&w=150',
+    logo_ai_chat: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=150',
+    logo_sugora_tree: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&q=80&w=150',
+    logo_sugora_shop: 'https://images.unsplash.com/photo-1472851294608-062f824d296e?auto=format&fit=crop&q=80&w=150',
+    logo_sugora_apps: 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?auto=format&fit=crop&q=80&w=150',
     tagline: 'Connect. Create. Monetize.',
     email: 'hello@sugora.com',
     phone: '+91 98765 43210',
@@ -409,6 +422,7 @@ export default function App() {
 
   // Sync Dark mode styles
   useEffect(() => {
+    localStorage.setItem('sugora_theme_pref', isDarkMode ? 'dark' : 'light');
     const root = document.documentElement;
     if (isDarkMode) {
       root.classList.add('dark');
@@ -423,13 +437,7 @@ export default function App() {
       if (window.location.pathname !== '/') {
         navigateTo('/');
       }
-      if (profile.role === 'admin') {
-        setActiveTab('admin');
-      } else if (profile.role === 'support') {
-        setActiveTab('support');
-      } else {
-        setActiveTab('ai');
-      }
+      setActiveTab('chat'); // Redirect directly to Chat Page by default
     }
   }, [profile]);
 
@@ -1040,8 +1048,25 @@ export default function App() {
     setCustomPages(prev => prev.filter(p => p.slug !== slug));
   };
 
+  const getActiveTabLogo = () => {
+    switch (activeTab) {
+      case 'chat':
+        return websiteSettings.logo_sugora_chat || websiteSettings.logo_url;
+      case 'ai':
+        return websiteSettings.logo_ai_chat || websiteSettings.logo_url;
+      case 'tree':
+        return websiteSettings.logo_sugora_tree || websiteSettings.logo_url;
+      case 'shop':
+        return websiteSettings.logo_sugora_shop || websiteSettings.logo_url;
+      case 'apps':
+        return websiteSettings.logo_sugora_apps || websiteSettings.logo_url;
+      default:
+        return websiteSettings.logo_url;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-[#1a1f26] dark:bg-[#06080a] dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="h-screen w-screen overflow-hidden bg-[#fafbfc] text-[#1a1f26] dark:bg-[#06080a] dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       
       {/* ONBOARDING DIALOG POPUP: Force user setup */}
       {!profile ? (
@@ -1567,198 +1592,168 @@ export default function App() {
         /* CORE ACTIVE CHASSIS LAYOUT */
         <>
           {/* MASTER USER LANDSCAPE INTERFACE */}
-          <div className="flex-1 flex flex-col bg-white">
-            <header id="main-global-header" className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30 shrink-0">
-              <div className="cursor-pointer transition-transform hover:scale-101 flex items-center gap-2" onClick={() => setActiveTab('ai')}>
-                {websiteSettings.logo_url ? (
-                  <img referrerPolicy="no-referrer" src={websiteSettings.logo_url} alt={websiteSettings.site_name} className="h-8.5 w-auto max-w-[150px] object-contain" />
-                ) : (
-                  <SugoraLogo className="h-8.5" />
-                )}
+          <div className="flex-1 flex flex-col bg-white dark:bg-zinc-950">
+            
+            {/* UNIFIED GLOBAL HEADER (Consistent across Desktop, Tablet and Mobile) */}
+            <header id="main-global-header" className="bg-white dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-900 px-4 sm:px-6 py-4 flex items-center justify-between z-30 shrink-0">
+              {/* Left branding logo */}
+              <div 
+                className="cursor-pointer transition-transform hover:scale-102 flex items-center gap-2.5 select-none" 
+                onClick={() => { setActiveTab('chat'); setProfileDropdownOpen(false); }}
+              >
+                <img 
+                  referrerPolicy="no-referrer" 
+                  src={getActiveTabLogo()} 
+                  alt={websiteSettings.site_name} 
+                  className="h-9 w-9 object-cover rounded-xl border border-slate-205 dark:border-zinc-800 shadow-xs" 
+                />
+                <span className="text-[11px] font-black tracking-wider uppercase text-slate-700 dark:text-zinc-200 hidden sm:inline-block bg-slate-100/80 dark:bg-zinc-900 px-2.5 py-1.5 rounded-xl border border-slate-200/40 dark:border-zinc-800">
+                  {activeTab === 'chat' && '🟢 Sugora Chat'}
+                  {activeTab === 'ai' && '✨ AI Copilot'}
+                  {activeTab === 'tree' && '🌿 Sugora Tree'}
+                  {activeTab === 'shop' && '🛒 Sugora Shop'}
+                  {activeTab === 'apps' && '📱 Sugora Apps'}
+                  {activeTab === 'wallet' && '💳 Sugora Wallet'}
+                  {activeTab === 'admin' && '👑 Owner Terminal'}
+                  {activeTab === 'support' && '🎫 Support Desk'}
+                </span>
               </div>
 
-              {/* Header Right controllers */}
-              <div className="flex items-center gap-3.5">
-                {/* On Chat/AI views, we ONLY display the website logo and a three-line (hamburger) menu icon */}
-                {activeTab !== 'ai' && activeTab !== 'chat' ? (
-                  <>
-                    <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-100 rounded-2xl px-3 py-1.5">
-                      <img
-                        referrerPolicy="no-referrer"
-                        src={profile.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'}
-                        alt={profile.name}
-                        className="h-7 w-7 rounded-xl object-cover ring-2 ring-indigo-500/10"
-                      />
-                      <div className="hidden sm:block text-left">
-                        <span className="block text-[11px] font-bold text-slate-800 leading-tight">{profile.name}</span>
-                        <span className="block text-[8px] text-indigo-600 font-extrabold uppercase tracking-wider mt-0.5">{profile.role}</span>
-                      </div>
-                    </div>
+              {/* Right Side Header Items */}
+              <div className="flex items-center gap-3 sm:gap-4 relative">
+                
+                {/* Earn Coins button */}
+                <button
+                  onClick={() => { setEarnCoinsModalOpen(true); setProfileDropdownOpen(false); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_4px_12px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_16px_rgba(245,158,11,0.4)] active:scale-95 cursor-pointer select-none overflow-hidden group border-0"
+                >
+                  <span className="animate-bounce font-sans text-yellow-100">🪙</span>
+                  <span>Earn Coins</span>
+                </button>
 
-                    <button
-                      onClick={handleLogOutSession}
-                      title="Sign Out / Disconnect Session"
-                      className="p-2 text-slate-400 hover:text-rose-600 transition rounded-xl bg-slate-50 border border-slate-100 hover:bg-rose-50 hover:border-rose-100 active:scale-95 cursor-pointer"
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </button>
+                {/* Dark/Light mode quick toggle */}
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="p-2 text-slate-400 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-yellow-400 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-900 transition duration-150 active:scale-90 cursor-pointer border-0"
+                  title={isDarkMode ? 'Toggle Light Mode' : 'Toggle Dark Mode'}
+                >
+                  {isDarkMode ? <Sun className="h-4.5 w-4.5 text-yellow-500" /> : <Moon className="h-4.5 w-4.5 text-slate-500" />}
+                </button>
 
-                    <button
-                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                      className="p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-50 transition active:scale-95"
-                      title="Toggle Menu"
-                    >
-                      {mobileMenuOpen ? <X className="h-5 w-5 text-indigo-600" /> : <Menu className="h-5 w-5" />}
-                    </button>
-                  </>
-                ) : (
-                  /* Only hamburger shown here as per client specifications */
+                {/* User avatar and name card (Toggles profile dropdown) */}
+                <div className="relative">
                   <button
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="p-2.5 text-slate-600 hover:text-slate-900 rounded-2xl bg-slate-50 hover:bg-indigo-50 transition active:scale-95 cursor-pointer flex items-center justify-center border border-slate-100"
-                    title="Toggle Workspace Menu"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-850 border border-slate-100 dark:border-zinc-800 rounded-full sm:rounded-2xl px-2 sm:px-3 text-left py-1 Transition-all duration-150 active:scale-98 cursor-pointer select-none"
                   >
-                    {mobileMenuOpen ? <X className="h-5 w-5 text-indigo-600" /> : <Menu className="h-5 w-5" />}
+                    <img
+                      referrerPolicy="no-referrer"
+                      src={profile.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'}
+                      alt={profile.name}
+                      className="h-7.5 w-7.5 rounded-full sm:rounded-xl object-cover ring-2 ring-indigo-500/10"
+                    />
+                    <div className="hidden sm:block">
+                      <span className="block text-[11px] font-extrabold text-[#1a1f26] dark:text-zinc-200 leading-tight max-w-[85px] truncate">{profile.name}</span>
+                      <span className="block text-[7.5px] text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest mt-0.5">{profile.role}</span>
+                    </div>
                   </button>
-                )}
+
+                  {/* PROFILE SETTINGS FLOATING DROPDOWN MENU */}
+                  <AnimatePresence>
+                    {profileDropdownOpen && (
+                      <>
+                        {/* Outside-click close listener */}
+                        <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setProfileDropdownOpen(false)} />
+                        
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 mt-2 w-52 bg-white dark:bg-[#12131a] border border-slate-100 dark:border-zinc-800 rounded-2xl shadow-xl z-50 p-2 overflow-hidden text-xs text-slate-700 dark:text-zinc-250 font-bold"
+                        >
+                          <div className="px-3 py-2 border-b dark:border-zinc-800/80 mb-1">
+                            <span className="block text-[10px] text-slate-400 uppercase tracking-widest">Account Manager</span>
+                            <span className="block text-slate-800 dark:text-zinc-100 truncate mt-0.5">{profile.email}</span>
+                          </div>
+
+                          <button
+                            onClick={() => { setActiveTab('dashboard'); setProfileDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-900 transition flex items-center gap-2 cursor-pointer text-slate-700 dark:text-zinc-350"
+                          >
+                            <span className="text-sm">👤</span>
+                            <span>Profile Settings</span>
+                          </button>
+
+                          <button
+                            onClick={() => { setActiveTab('wallet'); setProfileDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-900 transition flex items-center gap-2 cursor-pointer text-slate-700 dark:text-zinc-350"
+                          >
+                            <span className="text-sm">💳</span>
+                            <span>Wallet Settings</span>
+                          </button>
+
+                          <button
+                            onClick={() => { setActiveTab('wallet'); setProfileDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-900 transition flex items-center gap-2 cursor-pointer text-slate-700 dark:text-zinc-350"
+                          >
+                            <span className="text-sm">📈</span>
+                            <span>Earning Reports</span>
+                          </button>
+
+                          {profile.role === 'admin' && (
+                            <button
+                              onClick={() => { setActiveTab('admin'); setProfileDropdownOpen(false); }}
+                              className="w-full text-left px-3 py-2 rounded-xl bg-orange-50/50 hover:bg-orange-50 dark:bg-orange-950/10 dark:hover:bg-orange-950/20 text-orange-650 dark:text-orange-400 border border-orange-100/30 font-extrabold transition flex items-center gap-2 cursor-pointer mt-1"
+                            >
+                              <span className="text-sm">⚙️</span>
+                              <span>Admin Console</span>
+                            </button>
+                          )}
+
+                          {(profile.role === 'support' || profile.role === 'admin') && (
+                            <button
+                              onClick={() => { setActiveTab('support'); setProfileDropdownOpen(false); }}
+                              className="w-full text-left px-3 py-2 rounded-xl bg-blue-50/30 hover:bg-blue-50 dark:bg-blue-950/10 dark:hover:bg-blue-950/20 text-blue-600 dark:text-blue-400 border border-blue-100/30 transition flex items-center gap-2 cursor-pointer mt-1"
+                            >
+                              <span className="text-sm">🎫</span>
+                              <span>Support Tickets</span>
+                            </button>
+                          )}
+
+                          <div className="border-t dark:border-zinc-800 my-1.5" />
+
+                          <button
+                            onClick={() => { handleLogOutSession(); setProfileDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20 text-rose-650 dark:text-rose-400 transition flex items-center gap-2 cursor-pointer"
+                          >
+                            <span className="text-sm">📤</span>
+                            <span>Log out Session</span>
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+
               </div>
             </header>
 
-            <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden bg-white">
+            {/* CHASSIS LAYOUT FOR CONTENT (No left-side sidebar) */}
+            <div className="flex-1 flex flex-col relative overflow-hidden bg-white dark:bg-[#06080a]">
               
-              {/* SIDEBAR NAVIGATION GRIDS WITH ANIMATED PRESENCE SLIDES */}
-              <AnimatePresence mode="wait">
-                {(mobileMenuOpen || (activeTab !== 'ai' && activeTab !== 'chat')) && (
-                  <motion.nav
-                    initial={{ x: -280, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -280, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    className={`shrink-0 bg-white border-r border-slate-100 p-5 space-y-1.5 z-40 ${
-                      activeTab === 'ai' || activeTab === 'chat'
-                        ? 'absolute inset-y-0 left-0 w-72 shadow-2xl h-full'
-                        : mobileMenuOpen
-                          ? 'absolute inset-x-0 top-0 w-full bg-white h-fit border-b shadow-lg rounded-b-3xl'
-                          : 'hidden md:block md:w-64'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-50">
-                      <span className="block text-[9.5px] text-indigo-600 font-extrabold uppercase tracking-widest px-1">
-                        {profile.role === 'admin' 
-                          ? '⚙️ System Control Cabinet' 
-                          : profile.role === 'support' 
-                            ? '🎫 Support Desk Operations' 
-                            : 'Creator Suite Workspace'}
-                      </span>
-                      {(activeTab === 'ai' || activeTab === 'chat' || mobileMenuOpen) && (
-                        <button 
-                          onClick={() => setMobileMenuOpen(false)} 
-                          className="p-1 rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    
-                    {profile.role === 'admin' ? (
-                      // ADMIN PANELS MENU (direct left sidebar display)
-                      [
-                        { id: 'stats', label: 'Dashboard', icon: BarChart2, color: 'text-blue-600' },
-                        { id: 'users', label: 'Users Map', icon: Users, color: 'text-emerald-500' },
-                        { id: 'kyc', label: 'KYC Panel', icon: ShieldAlert, color: 'text-rose-500' },
-                        { id: 'shop', label: 'Inventory', icon: ShoppingCart, color: 'text-amber-500' },
-                        { id: 'branding', label: 'Branding', icon: Settings, color: 'text-indigo-500' },
-                        { id: 'pages', label: 'Page Builder', icon: Layout, color: 'text-violet-500' }
-                      ].map((item) => {
-                        const IconComp = item.icon;
-                        const isSelected = activeTab === 'admin' && adminSubTab === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setActiveTab('admin');
-                              setAdminSubTab(item.id as any);
-                              setMobileMenuOpen(false);
-                            }}
-                            className={`w-full py-3 px-3.5 rounded-2xl text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                              isSelected
-                                ? 'bg-blue-50/75 text-blue-700 shadow-xs scale-102 border-l-4 border-blue-600 font-bold'
-                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
-                          >
-                            <IconComp className={`h-4.5 w-4.5 shrink-0 ${isSelected ? 'text-blue-600 stroke-[2.2px]' : item.color}`} />
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })
-                    ) : profile.role === 'support' ? (
-                      // SUPPORT PANEL MENU (direct left sidebar display of filter statuses)
-                      [
-                        { id: 'all', label: 'All Tickets', icon: HelpCircle, color: 'text-blue-600' },
-                        { id: 'open', label: 'Open Tickets', icon: AlertTriangle, color: 'text-rose-500' },
-                        { id: 'assigned', label: 'Assigned Tickets', icon: Clock, color: 'text-amber-500' },
-                        { id: 'resolved', label: 'Resolved Tickets', icon: CheckCircle, color: 'text-emerald-500' }
-                      ].map((item) => {
-                        const IconComp = item.icon;
-                        const isSelected = activeTab === 'support' && supportFilter === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setActiveTab('support');
-                              setSupportFilter(item.id as any);
-                              setMobileMenuOpen(false);
-                            }}
-                            className={`w-full py-3 px-3.5 rounded-2xl text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                              isSelected
-                                ? 'bg-indigo-50/75 text-indigo-700 shadow-xs scale-102 border-l-4 border-indigo-600 font-bold'
-                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
-                          >
-                            <IconComp className={`h-4.5 w-4.5 shrink-0 ${isSelected ? 'text-indigo-600 stroke-[2.2px]' : item.color}`} />
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      // STANDARD CREATOR PANELS MENU
-                      [
-                        { id: 'dashboard', label: 'General Dashboard', icon: LayoutDashboard, color: 'text-indigo-600' },
-                        { id: 'tree', label: 'Sugora Tree', icon: Share2, color: 'text-rose-500' },
-                        { id: 'chat', label: 'Sugora Chat', icon: MessageSquare, color: 'text-emerald-500' },
-                        { id: 'shop', label: 'Sugora Shop', icon: ShoppingBag, color: 'text-amber-500' },
-                        { id: 'apps', label: 'Sugora Apps', icon: AppWindow, color: 'text-violet-500' },
-                        { id: 'ai', label: 'AI Chat', icon: Sparkles, color: 'text-purple-600' },
-                        { id: 'wallet', label: 'Wallet & KYC', icon: Wallet, color: 'text-blue-500' }
-                      ].map((item) => {
-                        const IconComp = item.icon;
-                        const isSelected = activeTab === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setActiveTab(item.id);
-                              setMobileMenuOpen(false);
-                            }}
-                            className={`w-full py-3 px-3.5 rounded-2xl text-left flex items-center gap-3 text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
-                              isSelected
-                                ? 'bg-indigo-50/75 text-indigo-700 shadow-xs scale-102 border-l-4 border-indigo-600'
-                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
-                          >
-                            <IconComp className={`h-4.5 w-4.5 shrink-0 ${isSelected ? 'text-indigo-600 stroke-[2.2px]' : item.color}`} />
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </motion.nav>
-                )}
-              </AnimatePresence>
-
               {/* CORE RENDERING VIEWSPACE PORTAL */}
-              <main id="main-content-panels" className="flex-grow p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto max-w-full bg-slate-50/60">
-                <div className="max-w-7xl mx-auto h-full">
+              <main 
+                id="main-content-panels" 
+                className={`flex-grow max-w-full bg-slate-50/60 dark:bg-[#0a0c10]/40 ${
+                  activeTab === 'chat' || activeTab === 'ai'
+                    ? 'p-0 pb-[76px] lg:pb-0 overflow-hidden flex flex-col h-full'
+                    : 'p-3 sm:p-5 lg:p-8 pb-24 lg:pb-8 overflow-y-auto'
+                }`}
+              >
+                <div className={`w-full h-full flex flex-col ${
+                  activeTab === 'chat' || activeTab === 'ai' ? 'max-w-full' : 'max-w-7xl mx-auto'
+                }`}>
                   {activeTab === 'dashboard' && (
                     <Dashboard
                       profile={profile}
@@ -1855,45 +1850,153 @@ export default function App() {
         </>
       )}
 
-      {/* PREMIUM BOTTOM MOBILE NAVIGATION */}
+      {/* 4. PREMIUM FLOATING BOTTOM-RIGHT MENU DOCK (Desktop: lg:flex) */}
       {profile && (
-        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-100 py-2 px-1 flex justify-around items-center z-45 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
+        <div className="hidden lg:flex fixed bottom-6 right-6 z-50 items-center justify-end">
+          <div className="flex items-center gap-1.5 bg-white/80 dark:bg-zinc-900/85 backdrop-blur-xl border border-slate-200/50 dark:border-zinc-850 p-2 rounded-2xl shadow-[0_12px_40px_rgba(79,70,229,0.12)] select-none">
+            {[
+              { id: 'chat', label: 'Sugora Chat', icon: MessageSquare, color: 'text-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 hover:scale-108 active:scale-95', hoverGlow: 'hover:shadow-emerald-500/20' },
+              { id: 'ai', label: 'AI Chat', icon: Sparkles, color: 'text-purple-600 bg-purple-50/50 dark:bg-purple-950/20 hover:scale-108 active:scale-95', hoverGlow: 'hover:shadow-purple-500/20' },
+              { id: 'tree', label: 'Sugora Tree', icon: Share2, color: 'text-rose-500 bg-rose-50/50 dark:bg-rose-950/20 hover:scale-108 active:scale-95', hoverGlow: 'hover:shadow-rose-500/20' },
+              { id: 'shop', label: 'Sugora Shop', icon: ShoppingBag, color: 'text-amber-500 bg-amber-50/50 dark:bg-amber-955/20 hover:scale-108 active:scale-95', hoverGlow: 'hover:shadow-amber-500/20' },
+              { id: 'apps', label: 'Sugora Apps', icon: AppWindow, color: 'text-violet-500 bg-violet-50/50 dark:bg-violet-950/20 hover:scale-108 active:scale-95', hoverGlow: 'hover:shadow-violet-500/20' }
+            ].map((tab) => {
+              const IconComp = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setProfileDropdownOpen(false);
+                  }}
+                  className={`relative p-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer group hover:shadow-lg ${tab.color} ${tab.hoverGlow} ${
+                    isSelected 
+                      ? 'ring-2 ring-indigo-500 dark:ring-indigo-400 font-extrabold shadow-md scale-102 bg-slate-100/80 dark:bg-zinc-800' 
+                      : ''
+                  }`}
+                  title={tab.label}
+                >
+                  <IconComp className={`h-5 w-5 ${isSelected ? 'stroke-[2.5px]' : 'stroke-[1.8px]'}`} />
+                  
+                  {/* Slide up tooltips */}
+                  <span className="absolute bottom-full mb-2 bg-[#1a1f26] text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-sm whitespace-nowrap z-50">
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 5. FIXED MOBILE/TABLET BOTTOM NAVIGATION BAR (Mobile & Tablet: lg:hidden) */}
+      {profile && (
+        <div className="lg:hidden fixed bottom-1.5 inset-x-3 bg-white/70 dark:bg-[#0c0d12]/75 backdrop-blur-xl border border-slate-200/50 dark:border-zinc-800/60 py-2 px-3 flex justify-around items-center z-45 shadow-[0_-8px_32px_rgba(0,0,0,0.06)] rounded-2xl select-none">
           {[
-            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'tree', label: 'Sugora Tree', icon: Share2 },
-            { id: 'ai', label: 'Copilot Chat', icon: Sparkles },
-            { id: 'wallet', label: 'Wallet', icon: Wallet },
-            { id: 'more', label: 'Menu', icon: Menu }
+            { id: 'chat', label: 'Sugora Chat', icon: MessageSquare, gradients: 'from-emerald-500 via-teal-500 to-cyan-500', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.45)]' },
+            { id: 'ai', label: 'AI Chat', icon: Sparkles, gradients: 'from-purple-500 via-indigo-500 to-violet-500', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.45)]' },
+            { id: 'tree', label: 'Sugora Tree', icon: Share2, gradients: 'from-rose-500 via-pink-500 to-red-500', glow: 'shadow-[0_0_15px_rgba(244,63,94,0.45)]' },
+            { id: 'shop', label: 'Sugora Shop', icon: ShoppingBag, gradients: 'from-amber-500 via-orange-500 to-yellow-500', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.45)]' },
+            { id: 'apps', label: 'Sugora Apps', icon: AppWindow, gradients: 'from-violet-500 via-fuchsia-500 to-indigo-500', glow: 'shadow-[0_0_15px_rgba(139,92,246,0.45)]' }
           ].map((tab) => {
             const IconComp = tab.icon;
-            const isSelected = activeTab === tab.id || (tab.id === 'more' && mobileMenuOpen);
+            const isSelected = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => {
-                  if (tab.id === 'more') {
-                    setMobileMenuOpen(!mobileMenuOpen);
-                  } else {
-                    setActiveTab(tab.id);
-                    setMobileMenuOpen(false);
-                  }
+                  setActiveTab(tab.id);
+                  setProfileDropdownOpen(false);
                 }}
-                className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all duration-150 cursor-pointer ${
+                className={`flex items-center justify-center transition-all duration-300 cursor-pointer h-12 w-12 rounded-xl relative ${
                   isSelected 
-                    ? 'text-indigo-600 font-extrabold scale-102' 
-                    : 'text-slate-500'
+                    ? `bg-gradient-to-tr ${tab.gradients} text-white scale-110 -translate-y-1 ${tab.glow}` 
+                    : 'text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-350 hover:bg-slate-50 dark:hover:bg-zinc-900/40'
                 }`}
+                title={tab.label}
               >
-                <IconComp className={`h-5 w-5 ${isSelected ? 'stroke-[2.5px] text-indigo-600' : 'stroke-[1.8px] text-slate-450'}`} />
-                <span className="text-[9px] tracking-tight">{tab.label}</span>
+                <IconComp className={`h-6 w-6 transition-transform ${isSelected ? 'scale-110 stroke-[2.2px]' : 'stroke-[1.8px] hover:scale-110'}`} />
+                {isSelected && (
+                  <span className="absolute bottom-1 h-1 w-1 rounded-full bg-white shadow-xs animate-ping" />
+                )}
               </button>
             );
           })}
         </div>
       )}
 
+      {/* 6. GOLDEN EARN COINS REFERRAL INSTRUCTIONS MODAL */}
+      <AnimatePresence>
+        {earnCoinsModalOpen && profile && (
+          <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-[#12131a] rounded-3xl border border-slate-100 dark:border-zinc-800 max-w-md w-full p-6 space-y-5 text-center shadow-2xl relative"
+            >
+              {/* Absolut close button */}
+              <button 
+                onClick={() => setEarnCoinsModalOpen(false)} 
+                className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 transition cursor-pointer border-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="flex flex-col items-center">
+                <span className="text-5xl animate-bounce mb-3">🪙</span>
+                <h3 className="text-base font-extrabold text-[#1a1f26] dark:text-zinc-100 uppercase tracking-widest bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent">
+                  Sugora Creator Coins
+                </h3>
+                <p className="text-[11px] text-slate-400 dark:text-zinc-450 font-bold mt-1 uppercase tracking-wider">
+                  Turn Traffic into Verified Liquid Yield
+                </p>
+              </div>
+
+              <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium leading-relaxed bg-slate-50 dark:bg-zinc-900/25 p-4 rounded-2xl text-left space-y-2 border dark:border-zinc-800/80">
+                <p className="font-bold text-slate-700 dark:text-zinc-300 text-center mb-1 text-xs">How to earn coins & commissions:</p>
+                <p>💡 <span className="font-bold text-slate-700 dark:text-zinc-300">Invite Creators</span>: Earn ₹100 active promo credits for every creator onboarding with your unique link.</p>
+                <p>🛒 <span className="font-bold text-slate-700 dark:text-zinc-300">Reseller Sales</span>: Add products to your Sugora Tree; earn up to 90% direct payout on sales with instant verification.</p>
+                <p>🏦 <span className="font-bold text-slate-700 dark:text-zinc-300">Affiliate Commissions</span>: Partner with hosting or Figma UI developers and draw automated referral rewards!</p>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-500 font-bold text-left">
+                <label className="block text-[9px] uppercase tracking-wider text-slate-400 dark:text-zinc-550">Your Invitation Referral URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`https://sugora.com/u/${profile.username}`}
+                    className="flex-1 rounded-xl bg-slate-100 dark:bg-zinc-900 p-2.5 pr-2.5 font-mono text-[10.5px] border dark:border-zinc-800 outline-none text-emerald-600 dark:text-emerald-400"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://sugora.com/u/${profile.username}`);
+                      alert('Invitation link copied successfully!');
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs tracking-wider transition active:scale-95 cursor-pointer border-0 shadow-sm"
+                  >
+                    Copy invite
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t dark:border-zinc-800">
+                <button
+                  onClick={() => setEarnCoinsModalOpen(false)}
+                  className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-850 font-extrabold text-[#1a1f26] dark:text-zinc-300 text-xs transition cursor-pointer border-0"
+                >
+                  Return to Workspace
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Embedded universal tiny footer */}
-      <footer className="py-3 px-6 border-t border-slate-100 text-center text-[10px] text-slate-400 bg-white shrink-0 capitalize">
+      <footer className="py-3 px-6 border-t border-slate-100 dark:border-zinc-900 text-center text-[10px] text-slate-400 dark:text-zinc-500 bg-white dark:bg-zinc-950 shrink-0 capitalize">
         Sugora.com Studio Portal © 2026 • Verified compliance standards approved
       </footer>
     </div>

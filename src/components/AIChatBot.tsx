@@ -278,7 +278,7 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
   const activeMessages = messages[activeConvId] || [];
 
   return (
-    <div id="ai-chat-root" className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[76vh] min-h-[520px] rounded-2xl overflow-hidden border border-slate-100 bg-white shadow-lg">
+    <div id="ai-chat-root" className="grid grid-cols-1 lg:grid-cols-12 h-full w-full rounded-none md:rounded-2xl overflow-hidden border border-slate-100 dark:border-zinc-850 bg-white dark:bg-[#0c0d12] shadow-xs md:shadow-lg flex-1">
       
       {/* Dynamic ChatGPT Sidebars (Collapsible/Responsive) */}
       <div className={`${isSidebarOpen ? 'flex' : 'hidden'} lg:flex lg:col-span-4 shrink-0 border-r border-slate-100 bg-slate-50/50 flex-col justify-between`}>

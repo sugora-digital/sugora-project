@@ -114,6 +114,13 @@ export default function AdminConsole({
   const [logoDragOver, setLogoDragOver] = useState<boolean>(false);
   const [favDragOver, setFavDragOver] = useState<boolean>(false);
 
+  // Individual Module Logos States
+  const [logoSugoraChat, setLogoSugoraChat] = useState<string>(websiteSettings.logo_sugora_chat || '');
+  const [logoAIChat, setLogoAIChat] = useState<string>(websiteSettings.logo_ai_chat || '');
+  const [logoSugoraTree, setLogoSugoraTree] = useState<string>(websiteSettings.logo_sugora_tree || '');
+  const [logoSugoraShop, setLogoSugoraShop] = useState<string>(websiteSettings.logo_sugora_shop || '');
+  const [logoSugoraApps, setLogoSugoraApps] = useState<string>(websiteSettings.logo_sugora_apps || '');
+
   // Custom Page Creator / Editing States
   const [editingPage, setEditingPage] = useState<CustomPage | null>(null);
   const [showPageForm, setShowPageForm] = useState<boolean>(false);
@@ -184,6 +191,11 @@ export default function AdminConsole({
       logo_url: brandLogo,
       favicon_url: brandFavicon,
       footer_logo_url: brandFooterLogo,
+      logo_sugora_chat: logoSugoraChat,
+      logo_ai_chat: logoAIChat,
+      logo_sugora_tree: logoSugoraTree,
+      logo_sugora_shop: logoSugoraShop,
+      logo_sugora_apps: logoSugoraApps,
       tagline: brandTagline,
       email: brandEmail,
       phone: brandPhone,
@@ -683,8 +695,8 @@ export default function AdminConsole({
             <form onSubmit={handleUpdateBranding} className="space-y-6 text-xs text-slate-500 font-bold">
               
               {/* BRAND BASIC INFO */}
-              <div className="space-y-3">
-                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">Basic Brand Profiling</h4>
+              <div className="space-y-3 font-sans text-slate-600">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 pl-2 font-bold">Basic Brand Profiling</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[9px] uppercase tracking-wider mb-1">Company / Website Name</label>
@@ -693,7 +705,7 @@ export default function AdminConsole({
                       required
                       value={brandName}
                       onChange={(e) => setBrandName(e.target.value)}
-                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
                     />
                   </div>
                   <div>
@@ -703,15 +715,15 @@ export default function AdminConsole({
                       required
                       value={brandTagline}
                       onChange={(e) => setBrandTagline(e.target.value)}
-                      className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                      className="w-full rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-2.5 text-slate-800 dark:text-zinc-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
                     />
                   </div>
                 </div>
               </div>
 
               {/* DRAG AND DROP ASSETS UPLOADERS */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] text-zinc-900 uppercase tracking-widest border-l-2 border-indigo-505 pl-2">Website Asset Assets Management</h4>
+              <div className="space-y-4 font-sans text-slate-600">
+                <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-indigo-505 pl-2 font-bold">Website Asset Assets Management</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Website Logo Dropzone */}
@@ -821,7 +833,7 @@ export default function AdminConsole({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-4 font-sans text-slate-600">
                   <div>
                     <label className="block text-[9px] uppercase tracking-wider mb-1">Footer/Drawer Logo URL (Secondary)</label>
                     <input
@@ -831,6 +843,108 @@ export default function AdminConsole({
                       onChange={(e) => setBrandFooterLogo(e.target.value)}
                       className="w-full rounded-xl bg-slate-50 border p-2.5 text-slate-800 focus:outline-none font-mono"
                     />
+                  </div>
+                </div>
+
+                {/* MODULE SPECIFIC PLATFORM LOGOS */}
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-zinc-800 font-sans text-slate-600">
+                  <h4 className="text-[10px] text-zinc-900 dark:text-zinc-100 uppercase tracking-widest border-l-2 border-emerald-500 pl-2 font-bold">
+                    Module Logo Overrides (Dynamic Header Change)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Configure custom branding logos for each separate application module. When a user switches tabs, the respective logo replaces the header standard brand logo instantly.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {/* Sugora Chat Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-900/40 p-3 rounded-2xl border border-slate-100 dark:border-zinc-800">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">💬 Sugora Chat Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/chat-logo.png"
+                        value={logoSugoraChat}
+                        onChange={(e) => setLogoSugoraChat(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-805 p-2 text-[10px] font-mono focus:outline-none text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraChat && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraChat} alt="Chat dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 font-bold">Header Live Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AI Chat Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-900/40 p-3 rounded-2xl border border-slate-100 dark:border-zinc-800">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">✨ AI Copilot Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/ai-logo.png"
+                        value={logoAIChat}
+                        onChange={(e) => setLogoAIChat(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-805 p-2 text-[10px] font-mono focus:outline-none text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoAIChat && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoAIChat} alt="AI dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 font-bold">Header Live Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sugora Tree Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-900/40 p-3 rounded-2xl border border-slate-100 dark:border-zinc-800">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">🌿 Sugora Tree Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/tree-logo.png"
+                        value={logoSugoraTree}
+                        onChange={(e) => setLogoSugoraTree(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-805 p-2 text-[10px] font-mono focus:outline-none text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraTree && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraTree} alt="Tree dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 font-bold">Header Live Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sugora Shop Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-900/40 p-3 rounded-2xl border border-slate-100 dark:border-zinc-800">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold font-bold">🛒 Sugora Shop Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/shop-logo.png"
+                        value={logoSugoraShop}
+                        onChange={(e) => setLogoSugoraShop(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-805 p-2 text-[10px] font-mono focus:outline-none text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraShop && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraShop} alt="Shop dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 font-bold">Header Live Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sugora Apps Logo */}
+                    <div className="space-y-2 bg-slate-50/55 dark:bg-zinc-900/40 p-3 rounded-2xl border border-slate-100 dark:border-zinc-800">
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-550 dark:text-zinc-400 font-bold">📱 Sugora Apps Logo</label>
+                      <input
+                        type="text"
+                        placeholder="https://example.com/apps-logo.png"
+                        value={logoSugoraApps}
+                        onChange={(e) => setLogoSugoraApps(e.target.value)}
+                        className="w-full rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-805 p-2 text-[10px] font-mono focus:outline-none text-slate-800 dark:text-zinc-200"
+                      />
+                      {logoSugoraApps && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <img referrerPolicy="no-referrer" src={logoSugoraApps} alt="Apps dynamic logo preview" className="h-7 w-7 object-cover rounded-lg border dark:border-zinc-700 shadow-xs" />
+                          <span className="text-[9px] text-emerald-600 font-bold">Header Live Preview</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
