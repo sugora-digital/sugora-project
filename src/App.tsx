@@ -25,7 +25,15 @@ import {
   Plus,
   HelpCircle,
   Share2,
-  Lock
+  Lock,
+  Upload,
+  Check,
+  AlertCircle,
+  Globe,
+  Phone,
+  Mail,
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, UserRole, WebsiteSettings, CustomPage, KYCStatus } from './types';
 import { INITIAL_PRODUCTS, INITIAL_APPS, INITIAL_MOCK_USERS, INITIAL_MOCK_TICKETS, INITIAL_TRANSACTIONS } from './mockData';
@@ -71,14 +79,38 @@ export default function App() {
   const [signUpStep, setSignUpStep] = useState<number>(1);
   const [nameInput, setNameInput] = useState<string>('');
   const [usernameInput, setUsernameInput] = useState<string>('');
-  const [avatarInput, setAvatarInput] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150');
+  const [avatarInput, setAvatarInput] = useState<string>('');
   const [usernameError, setUsernameError] = useState<string>('');
   const [roleInput, setRoleInput] = useState<UserRole>('user');
+
+  // Real-time username manual validation variables
+  const [usernameValidationStatus, setUsernameValidationStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  
+  // Custom manual profile avatar upload triggers
+  const [avatarDragOver, setAvatarDragOver] = useState<boolean>(false);
+  const [customAvatarPreview, setCustomAvatarPreview] = useState<string>('');
+
+  // Google OAuth popup modal & onboarding metadata states
+  const [showGoogleOnboardingModal, setShowGoogleOnboardingModal] = useState<boolean>(false);
+  const [googleOnboardingData, setGoogleOnboardingData] = useState<{
+    name: string;
+    email: string;
+    avatar_url: string;
+    role: UserRole;
+  } | null>(null);
+  const [googleUsername, setGoogleUsername] = useState<string>('');
+  const [googleCountry, setGoogleCountry] = useState<string>('');
+  const [googlePhone, setGooglePhone] = useState<string>('');
+  const [googleInstagram, setGoogleInstagram] = useState<string>('');
+  const [googleTwitter, setGoogleTwitter] = useState<string>('');
+  const [googleLinkedin, setGoogleLinkedin] = useState<string>('');
+  const [googleUsernameError, setGoogleUsernameError] = useState<string>('');
+  const [googleUsernameValidationStatus, setGoogleUsernameValidationStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
 
   // Credentials for Supabase Auth Live Sync
   const [emailInput, setEmailInput] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
-  const [isSignInMode, setIsSignInMode] = useState<boolean>(false);
+  const [isSignInMode, setIsSignInMode] = useState<boolean>(true); // Default to login screen as per specifications
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string>('');
 
@@ -299,6 +331,70 @@ export default function App() {
     loadGlobalDatasets();
   }, []);
 
+  // Real-time manual username checker effect
+  useEffect(() => {
+    if (!usernameInput) {
+      setUsernameValidationStatus('idle');
+      return;
+    }
+    const clean = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (clean !== usernameInput || clean.length < 3) {
+      setUsernameValidationStatus('invalid');
+      return;
+    }
+
+    setUsernameValidationStatus('checking');
+    const timer = setTimeout(() => {
+      const alreadyExists = usersList.some(u => u.username === clean);
+      if (alreadyExists) {
+        setUsernameValidationStatus('taken');
+      } else {
+        setUsernameValidationStatus('available');
+      }
+    }, 280);
+
+    return () => clearTimeout(timer);
+  }, [usernameInput, usersList]);
+
+  // Real-time Google OAuth username validator effect
+  useEffect(() => {
+    if (!googleUsername) {
+      setGoogleUsernameValidationStatus('idle');
+      return;
+    }
+    const clean = googleUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (clean !== googleUsername || clean.length < 3) {
+      setGoogleUsernameValidationStatus('invalid');
+      return;
+    }
+
+    setGoogleUsernameValidationStatus('checking');
+    const timer = setTimeout(() => {
+      const alreadyExists = usersList.some(u => u.username === clean);
+      if (alreadyExists) {
+        setGoogleUsernameValidationStatus('taken');
+      } else {
+        setGoogleUsernameValidationStatus('available');
+      }
+    }, 280);
+
+    return () => clearTimeout(timer);
+  }, [googleUsername, usersList]);
+
+  // Read local file upload files for avatar
+  const handleAvatarFile = (file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        const base64 = e.target.result as string;
+        setAvatarInput(base64);
+        setCustomAvatarPreview(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Sync Dark mode styles
   useEffect(() => {
     const root = document.documentElement;
@@ -400,16 +496,143 @@ export default function App() {
     }
   };
 
-  // Google OAuth Auto Onboarding simulation
-  const handleGoogleSignInMock = () => {
-    const randomSuffix = Math.floor(Math.random() * 1000000);
-    setNameInput('Alex Rivera');
-    setUsernameInput(`alex_google_oauth_${randomSuffix}`);
-    setEmailInput(`alex.rivera.${randomSuffix}@google-sim.sugora.com`);
-    setPasswordInput(`GoogleAuth_${randomSuffix}`);
-    setAvatarInput('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150');
-    setRoleInput('user');
-    setSignUpStep(2);
+  // Google OAuth Auto Onboarding premium simulation with profile popup first
+  const handleGoogleSignInMock = (roleContext: UserRole = 'user') => {
+    const randomSuffix = Math.floor(Math.random() * 100000);
+    const mockEmail = `${roleContext}.google.${randomSuffix}@google-sim.sugora.com`;
+    
+    // Set the initial metadata that Google supplies
+    setGoogleOnboardingData({
+      name: roleContext === 'admin' ? 'CEO Alex Rivera' : roleContext === 'support' ? 'Agent Sarah Miller' : 'Alex Rivera',
+      email: mockEmail,
+      avatar_url: roleContext === 'support'
+        ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150'
+        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+      role: roleContext
+    });
+
+    // Reset Google-specific setup states
+    setGoogleUsername('');
+    setGoogleCountry('India');
+    setGooglePhone('');
+    setGoogleInstagram('');
+    setGoogleTwitter('');
+    setGoogleLinkedin('');
+    setGoogleUsernameError('');
+    setGoogleUsernameValidationStatus('idle');
+
+    // Open profile setup popup/modal!
+    setShowGoogleOnboardingModal(true);
+  };
+
+  // Submits the Google OAuth profile setup modal & registers user
+  const handleCompleteGoogleSignUp = async () => {
+    if (!googleOnboardingData) return;
+    const cleanUsername = googleUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    
+    if (!cleanUsername || cleanUsername.length < 3) {
+      setGoogleUsernameError('Choose a valid username with at least 3 alphanumeric characters');
+      return;
+    }
+
+    // Uniqueness validation checks
+    const usernameTaken = usersList.some(u => u.username === cleanUsername);
+    if (usernameTaken) {
+      setGoogleUsernameError('The handle select is already registered by another creator');
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthErrorMessage('');
+    
+    try {
+      if (isSupabaseConfigured()) {
+        const passwordSuffix = `GoogleOAuth_${Math.floor(Math.random() * 1000000)}`;
+        const { data, error } = await supabase.auth.signUp({
+          email: googleOnboardingData.email,
+          password: passwordSuffix,
+          options: {
+            data: {
+              name: googleOnboardingData.name,
+              username: cleanUsername,
+              avatar_url: googleOnboardingData.avatar_url
+            }
+          }
+        });
+        if (error) throw error;
+
+        if (data.user) {
+          const newProfile: Profile = {
+            id: data.user.id,
+            email: googleOnboardingData.email,
+            name: googleOnboardingData.name,
+            username: cleanUsername,
+            avatar_url: googleOnboardingData.avatar_url,
+            role: googleOnboardingData.role,
+            created_at: new Date().toISOString(),
+            is_verified: true,
+            country: googleCountry,
+            phone: googlePhone,
+            whatsapp: googlePhone,
+            bio: `Creator from ${googleCountry}. Instagram: sugora.com/u/${cleanUsername}`,
+            website: googleLinkedin
+          };
+
+          const dbProfile = await syncProfile(newProfile);
+
+          const newW: WalletType = {
+            id: `wallet-${Date.now()}`,
+            user_id: data.user.id,
+            balance: 0.00,
+            promo_balance: 100.00,
+            withdrawn: 0,
+            updated_at: new Date().toISOString()
+          };
+          await syncWallet(newW);
+
+          setProfile(dbProfile || newProfile);
+          setWallet(newW);
+          setUsersList(prev => [...prev, dbProfile || newProfile]);
+        }
+      } else {
+        // Sandbox Local Mode
+        const newProfile: Profile = {
+          id: `current-user-${Date.now()}`,
+          email: googleOnboardingData.email,
+          name: googleOnboardingData.name,
+          username: cleanUsername,
+          avatar_url: googleOnboardingData.avatar_url,
+          role: googleOnboardingData.role,
+          created_at: new Date().toISOString(),
+          is_verified: true,
+          country: googleCountry,
+          phone: googlePhone,
+          whatsapp: googlePhone,
+          bio: `Onboarded via Google OAuth. Country: ${googleCountry}`,
+          website: googleLinkedin
+        };
+
+        const newW: WalletType = {
+          id: `wallet-${Date.now()}`,
+          user_id: newProfile.id,
+          balance: 50.00,
+          promo_balance: 100.00, // starting ₹100 bonus
+          withdrawn: 0,
+          updated_at: new Date().toISOString()
+        };
+
+        setProfile(newProfile);
+        setWallet(newW);
+        setUsersList(prev => [...prev, newProfile]);
+        setTransactionsList(INITIAL_TRANSACTIONS(newW.id));
+      }
+      setShowGoogleOnboardingModal(false);
+    } catch (err: any) {
+      console.error('[Google Onboarding Err]:', err);
+      setGoogleUsernameError(err.message || 'Verification on backend failed.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   // Sign Up / Register Account Creation
@@ -824,7 +1047,7 @@ export default function App() {
                 <SugoraLogo className="h-11" />
               </div>
               
-              {currentPath === '/admin-signin' ? (
+              {currentPath === '/admin-signin' || currentPath === '/admin' ? (
                 <>
                   <h2 className="text-base font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 uppercase">
                     Sugora Owner Terminal
@@ -833,7 +1056,7 @@ export default function App() {
                     Secure gateway for revenue controls, global parameters, and wallet validations.
                   </p>
                 </>
-              ) : currentPath === '/supportdesk-signin' ? (
+              ) : currentPath === '/supportdesk-signin' || currentPath === '/supporting' || currentPath === '/support' ? (
                 <>
                   <h2 className="text-base font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-indigo-600 uppercase">
                     Support Desk Console
@@ -855,7 +1078,7 @@ export default function App() {
             </div>
 
             {/* Path 1: ADMIN SIGN IN ROUTE */}
-            {currentPath === '/admin-signin' && (
+            {(currentPath === '/admin-signin' || currentPath === '/admin') && (
               <div className="space-y-4">
                 <div className="space-y-3">
                   <div>
@@ -943,7 +1166,7 @@ export default function App() {
             )}
 
             {/* Path 2: SUPPORT DESK SIGN IN ROUTE */}
-            {currentPath === '/supportdesk-signin' && (
+            {(currentPath === '/supportdesk-signin' || currentPath === '/supporting' || currentPath === '/support') && (
               <div className="space-y-4">
                 <div className="space-y-3">
                   <div>
@@ -1030,7 +1253,7 @@ export default function App() {
             )}
 
             {/* Path 3: STANDARD USER SIGN IN OR REGISTER ROUTES */}
-            {currentPath !== '/admin-signin' && currentPath !== '/supportdesk-signin' && (
+            {currentPath !== '/admin-signin' && currentPath !== '/admin' && currentPath !== '/supportdesk-signin' && currentPath !== '/supporting' && currentPath !== '/support' && (
               <>
                 {/* Stepper display (Hidden if in SignIn Mode to avoid confusion) */}
                 {(!isSupabaseConfigured() || !isSignInMode) && (
@@ -1237,14 +1460,14 @@ export default function App() {
                       <div className="flex gap-2.5 justify-center w-full">
                         <button
                           type="button"
-                          onClick={() => navigateTo('/admin-signin')}
+                          onClick={() => navigateTo('/admin')}
                           className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-indigo-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer text-center"
                         >
                           👑 Admin Terminal
                         </button>
                         <button
                           type="button"
-                          onClick={() => navigateTo('/supportdesk-signin')}
+                          onClick={() => navigateTo('/supporting')}
                           className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-purple-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-200 transition-all cursor-pointer text-center"
                         >
                           🎫 Support Desk

@@ -151,10 +151,10 @@ export const INITIAL_TRANSACTIONS = (walletId: string): WalletTransaction[] => [
   {
     id: 'tx-2',
     wallet_id: walletId,
-    amount: 250.00,
-    type: 'affiliate_earning',
+    amount: 50.00,
+    type: 'deposit',
     status: 'completed',
-    description: 'Affiliate sales commission v2',
+    description: 'Manual funds deposit via integrated UPI Gateway',
     created_at: new Date(Date.now() - 3 * 24 * 3600000).toISOString()
   }
 ];

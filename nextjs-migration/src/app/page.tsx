@@ -308,7 +308,7 @@ export default function Home() {
     setAuthError('');
 
     // If a forced role is not passed, determine based on currentPath (client router state)
-    const resolvedRole = forcedRole || (currentPath === '/admin-signin' ? 'admin' : currentPath === '/supportdesk-signin' ? 'support' : 'user');
+    const resolvedRole = forcedRole || (currentPath === '/admin-signin' || currentPath === '/admin' ? 'admin' : currentPath === '/supportdesk-signin' || currentPath === '/supporting' || currentPath === '/support' ? 'support' : 'user');
 
     try {
       const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
@@ -679,7 +679,7 @@ export default function Home() {
           <div className="absolute bottom-10 right-10 w-48 sm:w-80 h-48 sm:h-80 bg-rose-200/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute top-1/3 right-1/4 w-36 sm:w-60 h-36 sm:h-60 bg-emerald-200/10 rounded-full blur-3xl pointer-events-none" />
 
-          {currentPath === '/admin-signin' ? (
+          {currentPath === '/admin-signin' || currentPath === '/admin' ? (
             /* OWNER TERMINAL LOGIN SCREEN */
             <div id="admin-signin-gate" className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-6 relative z-10 animate-fade-in">
               <div className="text-center flex flex-col items-center">
@@ -748,7 +748,7 @@ export default function Home() {
                 </div>
               </form>
             </div>
-          ) : currentPath === '/supportdesk-signin' ? (
+          ) : currentPath === '/supportdesk-signin' || currentPath === '/supporting' || currentPath === '/support' ? (
             /* SUPPORT DECK LOGIN SCREEN */
             <div id="support-signin-gate" className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-6 relative z-10 animate-fade-in">
               <div className="text-center flex flex-col items-center">
@@ -972,14 +972,14 @@ export default function Home() {
                 <div className="flex gap-2.5 justify-center w-full">
                   <button
                     type="button"
-                    onClick={() => navigateTo('/admin-signin')}
+                    onClick={() => navigateTo('/admin')}
                     className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-indigo-650 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-205 hover:border-indigo-200 transition-all cursor-pointer text-center"
                   >
                     👑 Admin Terminal
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigateTo('/supportdesk-signin')}
+                    onClick={() => navigateTo('/supporting')}
                     className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-purple-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border border-slate-205 hover:border-purple-200 transition-all cursor-pointer text-center"
                   >
                     🎫 Support Desk
