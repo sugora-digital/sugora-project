@@ -5,10 +5,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Search, Send, Image as ImageIcon, Paperclip, Smile, MoreVertical, Check, 
-  CheckCheck, ShieldAlert, ArrowLeft, Bot, Sparkles, Share2, 
-  UserPlus, UserCheck, MessageSquare, Plus, Video, FileText, 
-  FolderArchive, Trash2, X, AlertTriangle, FileUp, Download
+  Search, Send, Paperclip, Smile, ArrowLeft, Sparkles, Share2, 
+  UserPlus, MessageSquare, X, AlertTriangle, FileUp, Download,
+  Coins, Moon, Sun, ChevronDown, LayoutDashboard, ShoppingBag,
+  FileText, FolderArchive
 } from 'lucide-react';
 import { Profile, ChatRoom, ChatMessage } from '../types';
 
@@ -130,7 +130,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
   // Active searching for users that are NOT currently in the sidebar conversation rooms
   const searchedUsersToStart = searchQuery.trim() ? (usersList || []).filter(u => {
     // Suppress current user from discovery list
-    if (u.id === currentUser.id) return false;
+    if (u.id === currentUser?.id) return false;
 
     // Suppress users whom we already have active conversations with inside the sidebar
     const hasAlreadyOpenedRoom = rooms.some(r => r.participant_id === u.id);
@@ -210,13 +210,12 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
     const newMsg: ChatMessage = {
       id: newMsgId,
       room_id: selectedRoomId,
-      sender_id: currentUser.id || 'current-user',
-      sender_name: currentUser.name || 'Current User',
+      sender_id: currentUser?.id || 'current-user',
+      sender_name: currentUser?.name || 'Current User',
       text: content,
       created_at: new Date().toISOString(),
       attachment: attachment ? {
         ...attachment,
-        // Ensure standard store only chat metadata rule satisfies: save URL, name, type, size and msg reference ID
       } : undefined
     };
 
@@ -288,16 +287,13 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
   const processUploadedFile = (file: File) => {
     setValidationError(null);
 
-    // 50 MB limit checks
     const MAX_SIZE = 50 * 1024 * 1024; // 50MB
     if (file.size > MAX_SIZE) {
-      setValidationError(`Upload failed: "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 50MB size limit limit.`);
-      // Clear validation message after 5 seconds automatically
+      setValidationError(`Upload failed: "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 50MB size limit.`);
       setTimeout(() => setValidationError(null), 6000);
       return;
     }
 
-    // Classify file type to conform to specification
     let classifiedType: 'image' | 'video' | 'audio' | 'document' | 'file' = 'file';
     const mime = file.type.toLowerCase();
     
@@ -308,21 +304,18 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
     } else if (mime.startsWith('audio/')) {
       classifiedType = 'audio';
     } else if (mime === 'application/pdf') {
-      classifiedType = 'document'; // PDF mapped as document/file as requested
+      classifiedType = 'document';
     } else {
       classifiedType = 'file';
     }
 
-    // Capture metadata - store only metadata (No binary payloads inside database standard storage)
     const file_m_name = file.name;
     const file_m_size = file.size < 1024 * 1024 
       ? `${(file.size / 1024).toFixed(1)} KB` 
       : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
 
-    // Generate local Preview Object URL for interactive sandbox previewing
     const fileObjectURL = URL.createObjectURL(file);
 
-    // Send only metadata package to standard message composer
     handleSendMessage('', {
       url: fileObjectURL,
       type: classifiedType,
@@ -331,7 +324,6 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
     });
   };
 
-  // Drag-and-drop Events
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -380,7 +372,6 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     
-    // Support matching by name, participant name, username, or phone/mobile number
     const usernameMatch = r.participant_username && r.participant_username.toLowerCase().includes(q);
     const originMatch = (usersList || []).find(u => u.id === r.participant_id);
     const phoneMatch = originMatch && originMatch.phone && originMatch.phone.toLowerCase().includes(q);
@@ -395,13 +386,11 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
 
   return (
     <div 
-      id="chat-system-widget" 
+      id="chat-system-master-container"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative flex h-full w-full rounded-none md:rounded-3xl overflow-hidden border bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-850 shadow-xs md:shadow-xl transition-all duration-350 select-none ${
-        isDragging ? 'ring-2 ring-emerald-500 bg-emerald-50/5 dark:bg-emerald-950/5' : ''
-      }`}
+      className="w-full flex flex-col p-0 md:p-6 bg-gradient-to-tr from-[#EAEDFB] via-[#F8F9FE] to-[#FDF5F6] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 rounded-[32px] shadow-sm select-none"
     >
       {/* File input handle */}
       <input 
@@ -414,429 +403,466 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
 
       {/* Drag overlay indicator */}
       {isDragging && (
-        <div className="absolute inset-0 bg-indigo-600/10 backdrop-blur-xs z-50 flex flex-col justify-center items-center text-indigo-600 dark:text-indigo-400 pointer-events-none border-4 border-dashed border-indigo-500 rounded-3xl animate-pulse">
+        <div className="absolute inset-x-6 inset-y-6 bg-indigo-650/15 backdrop-blur-sm z-50 flex flex-col justify-center items-center text-indigo-600 dark:text-indigo-400 pointer-events-none border-4 border-dashed border-indigo-500 rounded-3xl animate-pulse">
           <FileUp className="h-14 w-14 mb-2" />
           <h3 className="font-extrabold text-base">Drag and Drop any file to load instantly</h3>
           <p className="text-xs opacity-75">Images, Videos, PDFs & Documents up to 50MB</p>
         </div>
       )}
 
-      {/* 2. ROOMS SELECTOR SIDEBAR (Mobile togglable, scrollable list) */}
-      <div className={`w-full md:w-80 shrink-0 border-r dark:border-zinc-850 bg-slate-50/50 dark:bg-zinc-900/30 flex flex-col ${
-        isMobileListOpen ? 'block' : 'hidden md:flex'
-      }`}>
-        {/* Search header container */}
-        <div className="p-4 border-b dark:border-zinc-850 bg-white dark:bg-zinc-950 space-y-3">
-          <h2 className="text-sm font-extrabold text-[#1a1f26] dark:text-zinc-150 flex items-center justify-between uppercase tracking-wider">
-            <span>Conversations</span>
-            <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-900/40 font-bold font-sans">ACTIVE</span>
-          </h2>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Search chats, phone or @user..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 font-semibold border border-slate-200 dark:border-zinc-800 outline-none focus:bg-white dark:focus:bg-zinc-900 text-slate-800 dark:text-zinc-100"
-            />
+
+      {/* Main split dashboard panel layout */}
+      <div 
+        id="chat-system-split-frame"
+        className="w-full flex h-[580px] bg-white dark:bg-zinc-950 rounded-[32px] overflow-hidden border border-slate-200/40 dark:border-zinc-800/60 shadow-sm relative"
+      >
+        {/* LEFT CONVERSATIONS BAR */}
+        <div className={`w-full md:w-80 shrink-0 border-r border-[#eceff1] dark:border-zinc-800/80 bg-slate-50/45 dark:bg-zinc-900/40 flex flex-col relative overflow-hidden ${
+          isMobileListOpen ? 'block' : 'hidden md:flex'
+        }`}>
+          {/* Header block search */}
+          <div className="p-4 border-b border-[#eceff1] dark:border-zinc-850 bg-white dark:bg-zinc-950 space-y-3 shrink-0">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black text-slate-550 dark:text-zinc-400 uppercase tracking-widest">
+                CONVERSATIONS
+              </h3>
+              <span className="text-[8px] bg-emerald-100/50 dark:bg-emerald-950/55 text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-900/40 font-black font-sans leading-none select-none">
+                ACTIVE
+              </span>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search chats, phone or @user..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl bg-[#F4F6FC] dark:bg-zinc-900/50 border border-transparent dark:border-zinc-800 outline-none focus:bg-white dark:focus:bg-zinc-900 text-slate-800 dark:text-zinc-100 font-semibold"
+              />
+            </div>
+          </div>
+
+          {/* Scollable user-discovery list and active chats */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100/60 dark:divide-zinc-900/40 pb-28">
+            {/* User direct discovery */}
+            {searchQuery.trim() !== '' && (
+              <div className="bg-indigo-50/20 dark:bg-zinc-900/30 p-2.5 border-b border-[#eceff1] dark:border-zinc-850">
+                <span className="block text-[8px] uppercase font-black text-indigo-650 dark:text-indigo-400 tracking-widest mb-1.5">Discover New Users</span>
+                {searchedUsersToStart.length === 0 ? (
+                  <span className="block text-[10px] text-slate-400 dark:text-zinc-500 italic px-1">No user matched.</span>
+                ) : (
+                  <div className="space-y-1">
+                    {searchedUsersToStart.map(user => (
+                      <button
+                        key={user.id}
+                        onClick={() => handleStartNewChat(user)}
+                        className="w-full text-left p-2 rounded-xl bg-white dark:bg-zinc-900 hover:bg-slate-50 flex items-center justify-between border dark:border-zinc-800 transition text-[11.5px] font-semibold select-none cursor-pointer"
+                      >
+                        <div className="flex gap-2 items-center min-w-0">
+                          <img src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'} className="h-6 w-6 rounded-lg object-cover bg-slate-100" referrerPolicy="no-referrer" />
+                          <span className="text-slate-800 dark:text-zinc-100 truncate font-bold">{user.name}</span>
+                        </div>
+                        <UserPlus className="h-3.5 w-3.5 text-indigo-650 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Conversation Rooms list */}
+            {filteredRooms.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400 dark:text-zinc-500 font-medium">
+                No active conversations
+              </div>
+            ) : (
+              filteredRooms.map((room) => {
+                const isSel = room.id === selectedRoomId;
+                return (
+                  <div
+                    key={room.id}
+                    onClick={() => handleSelectRoom(room.id)}
+                    className={`p-3.5 flex gap-3 cursor-pointer transition-all duration-150 relative ${
+                      isSel 
+                        ? 'bg-[#EDF1FF]/60 dark:bg-[#1C2036]/50 border-l-[3.5px] border-indigo-600' 
+                        : 'hover:bg-slate-100/40 dark:hover:bg-zinc-900/20'
+                    }`}
+                  >
+                    <div className="relative shrink-0">
+                      <img
+                        src={room.participant_avatar}
+                        alt={room.name}
+                        className="h-11 w-11 rounded-full object-cover bg-slate-100 border border-slate-200 shadow-2xs"
+                        referrerPolicy="no-referrer"
+                      />
+                      {room.is_online && (
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 text-left pt-0.5 space-y-0.5">
+                      <div className="flex justify-between items-baseline">
+                        <h4 className="text-[12px] font-extrabold text-slate-800 dark:text-zinc-150 truncate leading-tight">
+                          {room.participant_name}
+                        </h4>
+                        <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-mono font-bold shrink-0">
+                          {room.last_message_time}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10.5px] text-slate-500 dark:text-zinc-400 truncate max-w-[155px] font-semibold leading-normal">
+                          {room.last_message}
+                        </p>
+                        {room.unread_count && room.unread_count > 0 ? (
+                          <span className="h-5 w-5 rounded-full text-[9px] font-black bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            {room.unread_count}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 3D OVERLAPPING SPEECH BUBBLES GRAPHIC AT FOOTER OF SIDEBAR */}
+          <div className="absolute bottom-3 left-3 right-3 hidden md:flex flex-col items-center justify-center py-5 px-4 bg-gradient-to-tr from-indigo-50/50 to-purple-50/30 dark:from-[#151722]/35 dark:to-[#1D172A]/20 rounded-2xl border border-indigo-150/30 dark:border-zinc-800/40 overflow-hidden select-none">
+            <span className="absolute top-1 left-5 text-indigo-400/40 text-[9px]">✦</span>
+            <span className="absolute top-6 right-5 text-purple-400/30 text-[9px]">✦</span>
+            
+            <div className="relative w-28 h-20 flex items-center justify-center">
+              <div className="absolute w-16 h-16 rounded-full bg-indigo-500/10 blur-md animate-pulse" />
+              
+              <svg className="w-full h-full drop-shadow-sm" viewBox="0 0 100 100">
+                {/* Leaf 1 */}
+                <path d="M 25,85 C 30,72 50,75 55,85" stroke="#10B981" strokeWidth="2" fill="#D1FAE5" strokeLinecap="round" />
+                {/* Leaf 2 */}
+                <path d="M 75,85 C 70,72 50,75 45,85" stroke="#10B981" strokeWidth="2" fill="#ECFDF5" strokeLinecap="round" />
+                {/* Grass strands */}
+                <path d="M 50,85 C 50,75 52,75 52,85" stroke="#059669" strokeWidth="1.5" fill="none" />
+                
+                {/* Pink speech bubble */}
+                <g transform="translate(14, 15)">
+                  <ellipse cx="28" cy="35" rx="17" ry="14" fill="url(#purplePinkBubbleGrad)" />
+                  <polygon points="18,46 22,42 16,40" fill="#EC4899" />
+                  <circle cx="21" cy="35" r="1.5" fill="white" />
+                  <circle cx="28" cy="35" r="1.5" fill="white" />
+                  <circle cx="35" cy="35" r="1.5" fill="white" />
+                </g>
+
+                {/* Blue speech bubble */}
+                <g transform="translate(42, 30)">
+                  <ellipse cx="24" cy="25" rx="15" ry="12" fill="url(#blueIndigoBubbleGrad)" />
+                  <polygon points="31,34 27,31 33,30" fill="#3B82F6" />
+                  <circle cx="18" cy="25" r="1.2" fill="white" />
+                  <circle cx="24" cy="25" r="1.2" fill="white" />
+                  <circle cx="30" cy="25" r="1.2" fill="white" />
+                </g>
+
+                <defs>
+                  <linearGradient id="purplePinkBubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#EC4899" />
+                    <stop offset="100%" stopColor="#8B5CF6" />
+                  </linearGradient>
+                  <linearGradient id="blueIndigoBubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#4F46E5" />
+                    <stop offset="100%" stopColor="#06B6D4" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
           </div>
         </div>
 
-        {/* List items block (only this section inside list selection side scrolls) */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100/60 dark:divide-zinc-900/50 pb-16 md:pb-0">
-          
-          {/* USER DISCOVERY DROPDOWN AREA FOR UNOPEND ROSTER SEARCHES */}
-          {searchQuery.trim() !== '' && (
-            <div className="bg-indigo-50/25 dark:bg-indigo-950/20 p-2.5 border-b dark:border-zinc-850">
-              <span className="block text-[9px] uppercase font-black text-indigo-600 dark:text-indigo-400 tracking-wider px-1 mb-1.5">Discover New Users</span>
-              
-              {searchedUsersToStart.length === 0 ? (
-                <span className="block text-[10.5px] text-zinc-400 dark:text-zinc-500 italic px-1">No user matched your query.</span>
-              ) : (
-                <div className="space-y-1">
-                  {searchedUsersToStart.map(user => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleStartNewChat(user)}
-                      className="w-full text-left p-2 rounded-xl bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-850 flex items-center justify-between border dark:border-zinc-800 transition duration-150 text-xs font-semibold"
-                    >
-                      <div className="flex gap-2 items-center min-w-0">
-                        <img referrerPolicy="no-referrer" src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'} className="h-7 w-7 rounded-lg object-cover bg-slate-100" />
-                        <div className="min-w-0">
-                          <span className="block text-slate-800 dark:text-zinc-150 font-bold truncate">{user.name}</span>
-                          <span className="block text-[9px] text-[#22c55e] dark:text-[#4ade80] font-medium truncate">{user.phone || '@' + user.username}</span>
-                        </div>
-                      </div>
-                      <UserPlus className="h-4 w-4 text-indigo-600 shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+        {/* RIGHT ACTIVE ROOM CHAT PORT */}
+        <div className={`flex-grow flex flex-col bg-white dark:bg-zinc-950 min-w-0 ${
+          !isMobileListOpen ? 'flex' : 'hidden md:flex'
+        }`}>
+          {activeRoom ? (
+            <>
+              {/* Header inside chat */}
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between shrink-0 bg-[#F8F9FE]/60 dark:bg-zinc-900/30">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsMobileListOpen(true)}
+                    className="rounded-xl h-8 w-8 bg-white dark:bg-zinc-900 border dark:border-zinc-800 flex md:hidden items-center justify-center text-slate-500 dark:text-zinc-400 transition cursor-pointer hover:bg-slate-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
 
-          {/* Regular Rooms */}
-          {filteredRooms.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400 dark:text-zinc-500">
-              No conversations found.
-            </div>
-          ) : (
-            filteredRooms.map((room) => {
-              const isSel = room.id === selectedRoomId;
-              return (
-                <div
-                  key={room.id}
-                  onClick={() => handleSelectRoom(room.id)}
-                  className={`p-3.5 flex gap-3 cursor-pointer transition-all duration-150 ${
-                    isSel 
-                      ? 'bg-indigo-50/40 dark:bg-[#1a1b24]/40 border-l-[3.5px] border-indigo-600 dark:border-indigo-500' 
-                      : 'hover:bg-slate-50 dark:hover:bg-zinc-900/40'
-                  }`}
-                >
                   <div className="relative shrink-0">
                     <img
+                      src={activeRoom.participant_avatar}
+                      alt={activeRoom.name}
+                      className="h-10 w-10 rounded-full object-cover border border-slate-200"
                       referrerPolicy="no-referrer"
-                      src={room.participant_avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150'}
-                      alt={room.name}
-                      className="h-10 w-10 rounded-full object-cover bg-slate-100 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800"
                     />
-                    {room.is_online && (
-                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950 ring-1 ring-slate-100 dark:ring-zinc-800" />
+                    {activeRoom.is_online && (
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
                     )}
                   </div>
 
-                  <div className="flex-1 min-w-0 text-left space-y-0.5 pt-0.5">
-                    <div className="flex justify-between items-baseline">
-                      <h4 className="text-xs font-extrabold text-slate-800 dark:text-zinc-200 truncate">{room.participant_name}</h4>
-                      <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-mono font-medium shrink-0">{room.last_message_time}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <p className="text-slate-500 dark:text-zinc-400 truncate max-w-[155px] font-medium leading-relaxed">{room.last_message}</p>
-                      {room.unread_count > 0 && (
-                        <span className="h-4.5 w-4.5 rounded-md text-[9px] font-black bg-indigo-600 dark:bg-indigo-500 text-white flex items-center justify-center shrink-0">
-                          {room.unread_count}
-                        </span>
-                      )}
-                    </div>
+                  <div className="text-left leading-none">
+                    <h3 className="text-xs font-black text-slate-800 dark:text-zinc-100 block">
+                      {activeRoom.participant_name}
+                    </h3>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 block font-mono mt-0.5 font-bold">
+                      {activeRoom.participant_username ? `@${activeRoom.participant_username}` : 'sugora_support'}
+                    </span>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </div>
 
-      {/* 3. CONVERSATION VIEW WINDOW (Fills space on selection state, scrollable message list) */}
-      <div className={`flex-grow flex flex-col bg-white dark:bg-zinc-950 min-w-0 ${
-        !isMobileListOpen ? 'flex' : 'hidden md:flex'
-      }`}>
-        
-        {/* Active room header */}
-        {activeRoom ? (
-          <>
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-zinc-900/20">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsMobileListOpen(true)}
-                  className="rounded-xl h-8 w-8 bg-white dark:bg-zinc-900 border dark:border-zinc-800 flex md:hidden items-center justify-center text-slate-500 dark:text-zinc-400 transition cursor-pointer hover:bg-slate-50"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-
-                <div className="relative shrink-0">
-                  <img
-                    referrerPolicy="no-referrer"
-                    src={activeRoom.participant_avatar}
-                    alt={activeRoom.name}
-                    className="h-9 w-9 rounded-full object-cover border dark:border-zinc-800"
-                  />
-                  {activeRoom.is_online && (
-                    <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950" />
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-black text-slate-800 dark:text-zinc-150 leading-tight">
-                    {activeRoom.participant_name}
-                  </h3>
-                  <span className="text-[9.5px] text-slate-400 block font-mono">
-                    {activeRoom.participant_username ? `@${activeRoom.participant_username}` : 'Sugora Official Desk'}
+                {/* Secure Connection Badge */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800 rounded-full shadow-2xs select-none">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[9.5px] text-slate-500 dark:text-zinc-400 font-extrabold uppercase tracking-wider">
+                    Secure Connection
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 p-0.5 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 text-transparent mx-2 inline-block animate-pulse">●</span>
-                <span className="text-[10.5px] text-slate-400 dark:text-zinc-500 font-bold tracking-tight pr-2">Secure Connection</span>
-              </div>
-            </div>
+              {/* Validation errors */}
+              {validationError && (
+                <div className="px-4 py-2 bg-rose-50 dark:bg-rose-950/20 border-b border-rose-100 text-[11px] text-rose-600 flex items-center gap-2 font-bold animate-fadeIn shrink-0">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{validationError}</span>
+                </div>
+              )}
 
-            {/* Validation & limit warnings strip */}
-            {validationError && (
-              <div className="px-4 py-2.5 bg-rose-50 dark:bg-rose-950/25 border-b border-rose-100 dark:border-rose-900/30 text-[11px] text-rose-600 dark:text-rose-400 flex items-center gap-2 font-bold animate-fadeIn shrink-0">
-                <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
-                <span>{validationError}</span>
-              </div>
-            )}
-
-            {/* Messages box list scrolling container (the only scrollable vertical content here) */}
-            <div className="flex-grow overflow-y-auto p-4 md:p-5 space-y-4 bg-slate-50/10 dark:bg-zinc-900/10">
-              {activeRoomMessages.map((msg, index) => {
-                const isMe = msg.sender_id === currentUser.id || msg.sender_id === 'current-user';
-                return (
-                  <div key={msg.id || index} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-                    <div className="max-w-[75%] space-y-1">
-                      
-                      {/* Name tags */}
-                      {!isMe && (
-                        <span className="block text-[8.5px] text-slate-400 dark:text-zinc-500 font-bold px-1 uppercase tracking-widest">{msg.sender_name}</span>
-                      )}
-
-                      <div className={`p-3.5 rounded-3xl text-xs font-semibold leading-relaxed relative group ${
-                        isMe 
-                          ? 'bg-indigo-600 dark:bg-indigo-500 text-white rounded-br-none' 
-                          : 'bg-white dark:bg-zinc-900 border dark:border-zinc-850 text-slate-800 dark:text-zinc-200 rounded-bl-none shadow-xs'
-                      }`}>
-                        
-                        {/* Text Content */}
-                        {msg.text && <p className="block whitespace-pre-wrap">{msg.text}</p>}
-
-                        {/* Interactive Attachments Rendering with custom icons */}
-                        {msg.attachment && (
-                          <div className="mt-1.5 space-y-1">
-                            {/* Images Attachments */}
-                            {msg.attachment.type === 'image' && (
-                              <div className="relative group border border-slate-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs bg-slate-50 dark:bg-zinc-950">
-                                <img 
-                                  referrerPolicy="no-referrer" 
-                                  src={msg.attachment.url} 
-                                  alt={msg.attachment.name || "Image Preview"} 
-                                  className="max-w-64 max-h-48 object-contain w-full rounded-xl"
-                                />
-                                <div className="p-2 bg-slate-100/90 dark:bg-zinc-900/95 flex justify-between items-center text-[10px] text-slate-600 dark:text-zinc-400 font-mono border-t dark:border-zinc-800">
-                                  <span className="truncate max-w-[150px] font-bold">{msg.attachment.name || 'Imagefile.png'}</span>
-                                  <span className="font-semibold shrink-0">{msg.attachment.size || '1.1 MB'}</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Video Playback attachments */}
-                            {msg.attachment.type === 'video' && (
-                              <div className="border border-slate-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs bg-slate-50 dark:bg-zinc-950 max-w-64">
-                                <video 
-                                  controls 
-                                  src={msg.attachment.url} 
-                                  className="w-full max-h-48 rounded-t-xl"
-                                />
-                                <div className="p-2 bg-slate-100/90 dark:bg-zinc-900/95 flex justify-between items-center text-[10px] text-slate-600 dark:text-zinc-400 font-mono border-t dark:border-zinc-800">
-                                  <span className="truncate max-w-[150px] font-bold">{msg.attachment.name || 'Video_Clip.mp4'}</span>
-                                  <span className="font-semibold shrink-0">{msg.attachment.size || '4.2 MB'}</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* PDFs Attachments */}
-                            {msg.attachment.type === 'document' && (
-                              <div className="flex items-center gap-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-red-750 dark:text-red-400 rounded-2xl p-3 max-w-64">
-                                <FileText className="h-8 w-8 text-red-500 shrink-0 fill-red-100 dark:fill-red-950" />
-                                <div className="min-w-0 flex-1 space-y-0.5 text-left">
-                                  <h4 className="font-extrabold text-[11.5px] leading-tight truncate">{msg.attachment.name || 'document.pdf'}</h4>
-                                  <span className="block text-[9px] opacity-75 font-mono">{msg.attachment.size || '380 KB'} • PDF File</span>
-                                </div>
-                                <a 
-                                  href={msg.attachment.url} 
-                                  download={msg.attachment.name || 'file.pdf'}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-1.5 rounded-xl bg-white dark:bg-zinc-900 hover:bg-red-50 text-red-600 border dark:border-zinc-800 transition active:scale-90"
-                                  title="Download / View PDF"
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                </a>
-                              </div>
-                            )}
-
-                            {/* Generic Document File Attachments */}
-                            {msg.attachment.type === 'file' && (
-                              <div className="flex items-center gap-3 bg-slate-100 dark:bg-zinc-900 border dark:border-zinc-800 text-slate-700 dark:text-zinc-300 rounded-2xl p-3 max-w-64">
-                                <FolderArchive className="h-8 w-8 text-slate-500 dark:text-zinc-400 shrink-0" />
-                                <div className="min-w-0 flex-1 space-y-0.5 text-left">
-                                  <h4 className="font-extrabold text-[11.5px] leading-tight truncate text-slate-800 dark:text-zinc-200">{msg.attachment.name || 'archive_assets.zip'}</h4>
-                                  <span className="block text-[9px] opacity-75 font-mono text-slate-500 dark:text-zinc-400">{msg.attachment.size || '12.4 MB'} • Document</span>
-                                </div>
-                                <a 
-                                  href={msg.attachment.url} 
-                                  download={msg.attachment.name || 'file'}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 text-slate-650 border dark:border-zinc-700 transition active:scale-90"
-                                  title="Download File"
-                                >
-                                  <Download className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                                </a>
-                              </div>
-                            )}
-                          </div>
+              {/* Chat bubbles roster, scrollable view container */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-[#FBFBFE]/35 dark:bg-zinc-900/10 min-h-0">
+                {activeRoomMessages.map((msg, idx) => {
+                  const isMe = msg.sender_id === currentUser?.id || msg.sender_id === 'current-user';
+                  return (
+                    <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                      <div className="max-w-[75%] space-y-1">
+                        {!isMe && (
+                          <span className="block text-[8px] text-slate-400 dark:text-zinc-500 font-black uppercase tracking-wider">
+                            {msg.sender_name}
+                          </span>
                         )}
 
-                        {/* Interactive message reactions drawer */}
-                        <div className="absolute top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-xl p-1 border dark:border-zinc-800 shadow-md z-15 right-full mr-2">
-                          {SUGGESTED_EMOJIS.slice(0, 5).map(e_char => (
-                            <button
-                              key={e_char}
-                              onClick={() => handleMessageReaction(msg.id, e_char)}
-                              className="hover:scale-130 text-[11px] transition duration-100 select-none cursor-pointer"
-                            >
-                              {e_char}
-                            </button>
-                          ))}
-                        </div>
+                        <div className={`p-4 rounded-[24px] text-[12px] font-semibold leading-relaxed relative group shadow-2xs ${
+                          isMe 
+                            ? 'bg-indigo-600 text-white rounded-tr-none shadow-sm' 
+                            : 'bg-white dark:bg-zinc-900 border border-[#EDF0F7] dark:border-zinc-800 text-slate-800 dark:text-zinc-200 rounded-tl-none'
+                        }`}>
+                          {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
 
-                        {/* Display reactions under bubble */}
-                        {msg.reactions && msg.reactions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 absolute top-full -translate-y-1/2 right-4 bg-white dark:bg-zinc-900 px-1.5 py-0.5 rounded-full border dark:border-zinc-800 text-[9.5px] text-slate-500 shadow-sm z-12 select-none">
-                            {msg.reactions.map((react, r_i) => (
-                              <span key={r_i} className="cursor-pointer" onClick={() => handleMessageReaction(msg.id, react)}>{react}</span>
+                          {/* Media attachments */}
+                          {msg.attachment && (
+                            <div className="mt-2 text-left">
+                              {msg.attachment.type === 'image' && (
+                                <div className="border rounded-xl overflow-hidden bg-white max-w-64">
+                                  <img src={msg.attachment.url} alt="attached img" className="w-full max-h-40 object-contain rounded-t-xl" referrerPolicy="no-referrer" />
+                                  <div className="p-1 px-2 border-t text-[9px] text-slate-500 font-mono flex justify-between">
+                                    <span className="truncate">{msg.attachment.name || 'image.png'}</span>
+                                    <span>{msg.attachment.size}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {msg.attachment.type === 'video' && (
+                                <div className="border rounded-xl overflow-hidden bg-white max-w-64">
+                                  <video src={msg.attachment.url} controls className="w-full max-h-40 object-contain rounded-t-xl" />
+                                  <div className="p-1 px-2 border-t text-[9px] text-slate-500 font-mono flex justify-between">
+                                    <span className="truncate">{msg.attachment.name}</span>
+                                    <span>{msg.attachment.size}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {msg.attachment.type === 'document' && (
+                                <div className="flex items-center gap-2 bg-rose-50 border border-rose-100 rounded-xl p-2 max-w-64 text-rose-700">
+                                  <FileText className="h-6 w-6 text-rose-500 shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <h5 className="font-bold text-[11px] truncate">{msg.attachment.name}</h5>
+                                    <span className="text-[8px] opacity-75 font-mono">{msg.attachment.size} • PDF</span>
+                                  </div>
+                                  <a href={msg.attachment.url} download={msg.attachment.name || 'document.pdf'} className="p-1 bg-white hover:bg-rose-50 border rounded-lg">
+                                    <Download className="h-3.5 w-3.5" />
+                                  </a>
+                                </div>
+                              )}
+                              {msg.attachment.type === 'file' && (
+                                <div className="flex items-center gap-2 bg-slate-100 dark:bg-zinc-800 border rounded-xl p-2 max-w-64 text-slate-700 dark:text-zinc-300">
+                                  <FolderArchive className="h-6 w-6 text-slate-500 shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <h5 className="font-bold text-[11px] truncate">{msg.attachment.name}</h5>
+                                    <span className="text-[8px] opacity-75 font-mono">{msg.attachment.size}</span>
+                                  </div>
+                                  <a href={msg.attachment.url} download={msg.attachment.name || 'file'} className="p-1 bg-white hover:bg-slate-55 border rounded-lg">
+                                    <Download className="h-3.5 w-3.5" />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Message reactions click tab */}
+                          <div className="absolute top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-1 shadow-sm z-20 right-full mr-2">
+                            {SUGGESTED_EMOJIS.slice(0, 5).map(em_char => (
+                              <button
+                                key={em_char}
+                                onClick={() => handleMessageReaction(msg.id, em_char)}
+                                className="hover:scale-130 transition font-sans text-xs cursor-pointer select-none border-0 p-0.5 bg-transparent"
+                              >
+                                {em_char}
+                              </button>
                             ))}
                           </div>
-                        )}
+
+                          {/* Show accumulated message reactions */}
+                          {msg.reactions && msg.reactions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 absolute top-full -translate-y-1/2 right-4 bg-white dark:bg-zinc-800 rounded-full border border-slate-200 dark:border-zinc-700 px-1.5 py-0.5 text-[9.5px] shadow-sm select-none">
+                              {msg.reactions.map((r, r_idx) => (
+                                <span key={r_idx} className="cursor-pointer" onClick={() => handleMessageReaction(msg.id, r)}>{r}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <span className={`block text-[8.5px] text-slate-400 dark:text-zinc-500 font-mono font-bold ${isMe ? 'text-right' : 'text-left'}`}>
+                          {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
-
-                      <span className={`block text-[8px] text-slate-400 dark:text-zinc-500 font-mono ${isMe ? 'text-right' : 'text-left'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </span>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
 
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message input composer anchor */}
-            <div className="p-3 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-900 space-y-2">
-              <div className="flex items-center gap-2">
-                
-                {/* Manual Click file picker */}
-                <button
-                  type="button"
-                  onClick={triggerFileInput}
-                  className="rounded-xl h-10 w-10 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-850 border border-slate-200 dark:border-zinc-800 text-slate-505 dark:text-zinc-400 flex items-center justify-center transition shrink-0 cursor-pointer"
-                  title="Upload / Share local files (Click / Drag files onto panel)"
-                >
-                  <Paperclip className="h-4.5 w-4.5" />
-                </button>
-
-                {/* Main Instant Text input form */}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }}
-                  className="flex-1 flex gap-2"
-                >
-                  <input
-                    type="text"
-                    value={inputVal}
-                    onChange={(e) => setInputVal(e.target.value)}
-                    placeholder="Type a message or select / drag files..."
-                    className="flex-1 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/80 p-2.5 text-xs font-semibold focus:bg-white dark:focus:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-indigo-505 text-slate-800 dark:text-zinc-150"
-                  />
-
-                  {/* Standard emoji toggler */}
+              {/* Chat composer attachment + inputs */}
+              <div className="p-3.5 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-900 shrink-0">
+                <div className="flex items-center gap-2">
+                  {/* Attachment button click-trigger picker */}
                   <button
                     type="button"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className={`rounded-xl h-10 w-10 border flex items-center justify-center transition shrink-0 cursor-pointer ${
-                      showEmojiPicker 
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-950/40 dark:border-indigo-900' 
-                        : 'bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-850 border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400'
-                    }`}
-                    title="Toggle Emoji Box"
+                    onClick={triggerFileInput}
+                    className="rounded-2xl h-11 w-11 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-850 border border-slate-200 dark:border-zinc-800 text-slate-500 flex items-center justify-center transition shrink-0 cursor-pointer shadow-2xs"
+                    title="Upload / Share files"
                   >
-                    <Smile className="h-4.5 w-4.5" />
+                    <Paperclip className="h-4.5 w-4.5 text-slate-500" />
                   </button>
-                  
-                  <button
-                    type="submit"
-                    className="rounded-2xl h-10 w-10 bg-indigo-600 hover:bg-indigo-700 text-[#FFFFFF] shadow-sm flex items-center justify-center transition shrink-0 hover:scale-105 active:scale-95 cursor-pointer"
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }}
+                    className="flex-1 flex gap-2 items-center"
                   >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </form>
-              </div>
-
-              {/* Suggestions strip: Display commonly used emojis below the message box (Suggestions Area) */}
-              <div className="flex items-center gap-1 px-1.5 py-0.5 border-t border-slate-50 dark:border-zinc-900/40 justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-zinc-550 font-extrabold pr-1">Suggested:</span>
-                  {SUGGESTED_EMOJIS.slice(0, 10).map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => handleSelectEmoji(emoji)}
-                      className="hover:scale-130 transition text-xs font-sans pb-0.5 focus:outline-none select-none cursor-pointer"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[9.5px] text-slate-350 dark:text-zinc-500 font-medium italic hidden sm:inline">Drag Files Here to Upload</span>
-              </div>
-
-              {/* Advanced inline picker: Show emoji picker directly below the message input area */}
-              {showEmojiPicker && (
-                <div className="border border-slate-100 dark:border-zinc-800 rounded-2xl bg-slate-5/50 dark:bg-zinc-900/50 p-3.5 space-y-3 animate-fadeIn">
-                  <div className="flex justify-between items-center border-b dark:border-zinc-800 pb-1.5">
-                    <span className="text-[9.5px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Unicode Emoji Category Picker</span>
-                    <button 
-                      onClick={() => setShowEmojiPicker(false)} 
-                      className="text-slate-450 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-400"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Tabs selector */}
-                  <div className="flex gap-1 border-b pb-2 dark:border-zinc-800">
-                    {ALL_EMOJIS_CATEGORIES.map((cat, c_idx) => (
+                    {/* Rounded Text Composer with integrated emoji trigger */}
+                    <div className="flex-grow flex items-center bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/80 rounded-[20px] px-3.5 shadow-2xs relative">
+                      <input
+                        type="text"
+                        value={inputVal}
+                        onChange={(e) => setInputVal(e.target.value)}
+                        placeholder="Type a message or select / drag files..."
+                        className="flex-grow py-3 text-[11.5px] font-semibold bg-transparent focus:outline-none text-slate-800 dark:text-zinc-150 border-0"
+                      />
                       <button
-                        key={cat.name}
-                        onClick={() => setActiveEmojiCategory(c_idx)}
-                        className={`px-2.5 py-1 text-[10px] rounded-lg font-bold transition cursor-pointer ${
-                          activeEmojiCategory === c_idx 
-                            ? 'bg-indigo-600 text-white' 
-                            : 'bg-white hover:bg-slate-50 dark:bg-zinc-80 w text-slate-600 dark:text-zinc-400 hover:text-slate-900'
-                        }`}
+                        type="button"
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className="text-slate-400 hover:text-slate-650 transition cursor-pointer bg-transparent border-0 ml-1.5 shrink-0"
                       >
-                        {cat.name}
+                        <Smile className="h-5 w-5" />
                       </button>
-                    ))}
-                  </div>
+                    </div>
 
-                  {/* Grid layout */}
-                  <div className="grid grid-cols-10 gap-1.5 max-h-24 overflow-y-auto pr-1">
-                    {ALL_EMOJIS_CATEGORIES[activeEmojiCategory].emojis.map((emoji) => (
+                    <button
+                      type="submit"
+                      className="rounded-full h-11 w-11 bg-indigo-600 hover:bg-indigo-700 hover:scale-105 active:scale-95 text-white flex items-center justify-center shadow-md transition shrink-0 cursor-pointer border-0"
+                    >
+                      <Send className="h-4.5 w-4.5 transform rotate-[25deg]" />
+                    </button>
+                  </form>
+                </div>
+
+                {/* SUGGESTED bar reflecting picture */}
+                <div className="flex items-center justify-between mt-3 px-1 font-sans">
+                  <div className="flex flex-wrap items-center gap-1.5 select-none text-[11px]">
+                    <span className="font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest pr-2">
+                      SUGGESTED:
+                    </span>
+                    {SUGGESTED_EMOJIS.slice(0, 10).map((emoji) => (
                       <button
                         key={emoji}
+                        type="button"
                         onClick={() => handleSelectEmoji(emoji)}
-                        className="py-1 text-center hover:scale-130 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition text-base font-sans select-none cursor-pointer"
+                        className="hover:scale-130 transition font-sans text-[11px] hover:pb-0.5 focus:outline-none cursor-pointer bg-transparent border-0"
                       >
                         {emoji}
                       </button>
                     ))}
                   </div>
+                  <span className="text-[9.5px] text-slate-400 font-mono hidden sm:inline select-none font-bold">
+                    Drag files here to upload
+                  </span>
                 </div>
-              )}
+
+
+
+                {/* Unicode category picker */}
+                {showEmojiPicker && (
+                  <div className="mt-3.5 border border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50 dark:bg-zinc-900/60 p-3.5 space-y-3 font-sans relative z-10 animate-fadeIn text-left">
+                    <div className="flex justify-between items-center border-b dark:border-zinc-800 pb-1.5">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">UNICODE EMOJI CATEGORY</span>
+                      <button 
+                        onClick={() => setShowEmojiPicker(false)} 
+                        className="text-slate-400 hover:text-slate-650 bg-transparent border-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex gap-1 overflow-x-auto pb-1 select-none">
+                      {ALL_EMOJIS_CATEGORIES.map((cat, c_idx) => (
+                        <button
+                          type="button"
+                          key={cat.name}
+                          onClick={() => setActiveEmojiCategory(c_idx)}
+                          className={`px-2.5 py-1 text-[9.5px] font-extrabold rounded-lg shrink-0 transition select-none cursor-pointer border-0 ${
+                            activeEmojiCategory === c_idx 
+                              ? 'bg-indigo-650 text-white' 
+                              : 'bg-white hover:bg-slate-50 dark:bg-zinc-800 text-slate-500'
+                          }`}
+                        >
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-10 gap-1.5 max-h-24 overflow-y-auto pr-1">
+                      {ALL_EMOJIS_CATEGORIES[activeEmojiCategory].emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => handleSelectEmoji(emoji)}
+                          className="py-1 text-center hover:scale-130 rounded-lg transition text-base font-sans select-none cursor-pointer border-0 bg-transparent"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center items-center text-center p-12 text-slate-400">
+              <MessageSquare className="h-10 w-10 text-slate-300 animate-bounce mb-2" />
+              <h4 className="font-extrabold text-slate-700">Select a conversation</h4>
+              <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
+                Search username or phone from left panel to start messaging immediately.
+              </p>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col justify-center items-center text-center p-12 text-slate-400 dark:text-zinc-505 selection:none select-none">
-            <MessageSquare className="h-12 w-12 text-slate-300 dark:text-zinc-700 animate-bounce mb-3" />
-            <h4 className="font-extrabold text-slate-650 dark:text-zinc-400">Select or Start a conversation</h4>
-            <p className="text-xs text-slate-400 dark:text-zinc-500 max-w-xs mt-1.5 leading-relaxed font-semibold">Enter a profile name, username, or mobile number inside the searching panel to chat immediately.</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
