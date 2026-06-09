@@ -973,41 +973,35 @@ export default function Home() {
             </div>
           ) : (
             /* STANDARD CLIENT ONBOARDING */
-            <div id="general-signin-gate" className="w-full max-w-sm my-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-[0_20px_50px_rgba(79,70,229,0.06)] hover:shadow-[0_25px_60px_rgba(79,70,229,0.1)] transition-all duration-300 space-y-6 relative z-10 animate-fade-in">
+            <div id="general-signin-gate" className="w-full max-w-sm my-auto bg-white dark:bg-zinc-950 rounded-3xl p-6 sm:p-8 border border-slate-100 dark:border-zinc-800/80 shadow-[0_20px_50px_rgba(79,70,229,0.06)] hover:shadow-[0_25px_60px_rgba(79,70,229,0.1)] transition-all duration-300 space-y-6 relative z-10 animate-fade-in">
               
               <div className="text-center flex flex-col items-center">
                 <div className="mb-3 transition-transform hover:scale-102">
                   <SugoraLogo className="h-11" />
                 </div>
-                <p className="text-xs text-slate-450 font-sans tracking-wide font-medium">Turn Time Into Value</p>
-
-                {/* Connection Status Indicator */}
-                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] tracking-wider font-extrabold uppercase bg-indigo-50 text-indigo-750 border border-indigo-100/30">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                  </span>
-                  {process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') 
-                    ? 'Cloud Active Mode' 
-                    : 'Sandbox Engine Active'}
-                </div>
+                <h2 className="text-base font-black tracking-tight text-slate-800 dark:text-zinc-200 uppercase mt-2">
+                  CREATOR STUDIO PORTAL
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-[280px] font-medium leading-relaxed font-sans">
+                  Configure your link templates & UPI wallet payout credentials
+                </p>
               </div>
 
               {/* Mode Selection */}
-              <div className="flex bg-slate-100/85 p-1.5 rounded-2xl border border-slate-200/50">
-                <button 
-                  type="button"
-                  onClick={() => { setAuthMode('signin'); setAuthError(''); }}
-                  className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${authMode === 'signin' ? 'bg-white text-indigo-650 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                  Sign In
-                </button>
+              <div className="flex justify-center items-center pb-2 mb-2 gap-4">
                 <button 
                   type="button"
                   onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                  className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all duration-155 cursor-pointer ${authMode === 'signup' ? 'bg-white text-indigo-650 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`text-xs font-bold transition py-1.5 px-4 rounded-lg cursor-pointer border ${authMode === 'signup' ? 'border-black dark:border-white text-slate-900 dark:text-zinc-100 font-extrabold bg-white dark:bg-zinc-950 shadow-xs' : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-slate-650'}`}
                 >
-                  Sign Up
+                  Create Account
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setAuthMode('signin'); setAuthError(''); }}
+                  className={`text-xs font-bold transition py-1.5 px-4 rounded-lg cursor-pointer border ${authMode === 'signin' ? 'border-black dark:border-white text-slate-900 dark:text-zinc-100 font-extrabold bg-white dark:bg-zinc-950 shadow-xs' : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-slate-650'}`}
+                >
+                  Sign In
                 </button>
               </div>
 
@@ -1050,26 +1044,26 @@ export default function Home() {
                 )}
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Email Address</label>
+                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 font-extrabold mb-1.5">EMAIL ADDRESS</label>
                   <input
                     type="email"
                     required
-                    placeholder="e.g. user@sugora.com"
+                    placeholder="e.g. alex@example.com"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800 transition"
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800 transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Password</label>
+                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 font-extrabold mb-1.5">PASSWORD</label>
                   <input
                     type="password"
                     required
-                    placeholder="••••••••"
+                    placeholder="Minimum 6 characters"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
-                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800 transition"
+                    className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800 transition"
                   />
                 </div>
 
@@ -1087,7 +1081,7 @@ export default function Home() {
                           key={img}
                           onClick={() => setAvatarInput(img)}
                           className={`rounded-full p-0.5 border-2 transition ${
-                            avatarInput === img ? 'border-indigo-650 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                            avatarInput === img ? 'border-indigo-600 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                           }`}
                         >
                           <img referrerPolicy="no-referrer" src={img} alt="avatar option" className="h-10 w-10 rounded-full object-cover" />
@@ -1099,7 +1093,7 @@ export default function Home() {
                       placeholder="Or paste custom image URL..."
                       value={avatarInput}
                       onChange={(e) => setAvatarInput(e.target.value)}
-                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-505 text-slate-800"
+                      className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
                     />
                   </div>
                 )}
@@ -1107,7 +1101,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-100 py-3 text-xs font-semibold text-white tracking-wide active:scale-95 transition disabled:opacity-50 cursor-pointer shadow-md"
+                  className="w-full rounded-2xl bg-[#9b91f5] hover:bg-[#887ef4] py-3.5 text-xs font-bold text-white tracking-wide active:scale-95 transition disabled:opacity-50 cursor-pointer shadow-sm mt-2"
                 >
                   {isAuthLoading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -1115,7 +1109,7 @@ export default function Home() {
                       Authenticating...
                     </span>
                   ) : (
-                    authMode === 'signin' ? 'Sign In to Client Portal' : 'Create Sugora Account & Claim ₹100'
+                    authMode === 'signin' ? 'Sign In to Creator Portal' : 'Sign Up to Creator Portal'
                   )}
                 </button>
               </form>
@@ -1127,16 +1121,16 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => navigateTo('/admin')}
-                    className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-indigo-650 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-205 hover:border-indigo-200 transition-all cursor-pointer text-center"
+                    className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-indigo-650 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer text-center"
                   >
                     👑 Admin Terminal
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateTo('/supporting')}
-                    className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-purple-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border border-slate-205 hover:border-purple-200 transition-all cursor-pointer text-center"
+                    className="flex-1 text-[10px] font-extrabold text-slate-500 hover:text-purple-600 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-200 transition-all cursor-pointer text-center"
                   >
-                    🎫 Support Desk
+                    📁 Support Desk
                   </button>
                 </div>
               </div>

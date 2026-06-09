@@ -1185,10 +1185,10 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <h2 className="text-base font-extrabold tracking-tight text-slate-600 uppercase">
-                    Creator Studio Portal
+                  <h2 className="text-base font-black tracking-tight text-slate-800 dark:text-zinc-200 uppercase mt-2">
+                    CREATOR STUDIO PORTAL
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1 font-medium">
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-[280px] font-medium leading-relaxed font-sans">
                     Configure your link templates & UPI wallet payout credentials
                   </p>
                 </>
@@ -1397,37 +1397,37 @@ export default function App() {
                 {signUpStep === 1 && (
                   <div className="space-y-4 w-full">
                     
-                    {/* Choose between Create Account vs Sign In */}
-                    {isSupabaseConfigured() && (
-                      <div className="flex justify-center border-b border-slate-100 pb-2 mb-2 gap-6">
-                        <button
-                          onClick={() => {
-                            setIsSignInMode(false);
-                            setAuthErrorMessage('');
-                          }}
-                          className={`pb-1.5 text-xs font-bold transition-all cursor-pointer ${
-                            !isSignInMode 
-                              ? 'text-indigo-600 border-b-2 border-indigo-600' 
-                              : 'text-slate-400 hover:text-slate-650'
-                          }`}
-                        >
-                          Create Account
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsSignInMode(true);
-                            setAuthErrorMessage('');
-                          }}
-                          className={`pb-1.5 text-xs font-bold transition-all cursor-pointer ${
-                            isSignInMode 
-                              ? 'text-indigo-600 border-b-2 border-indigo-600' 
-                              : 'text-slate-400 hover:text-slate-650'
-                          }`}
-                        >
-                          Sign In
-                        </button>
-                      </div>
-                    )}
+                     {/* Choose between Create Account vs Sign In */}
+                     {isSupabaseConfigured() && (
+                       <div className="flex justify-center items-center pb-2 mb-2 gap-4">
+                         <button
+                           onClick={() => {
+                             setIsSignInMode(false);
+                             setAuthErrorMessage('');
+                           }}
+                           className={`text-xs font-bold transition py-1.5 px-4 rounded-lg cursor-pointer border ${
+                             !isSignInMode 
+                               ? 'border-black dark:border-white text-slate-900 dark:text-zinc-100 font-extrabold bg-white dark:bg-zinc-950 shadow-xs' 
+                               : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-slate-650'
+                           }`}
+                         >
+                           Create Account
+                         </button>
+                         <button
+                           onClick={() => {
+                             setIsSignInMode(true);
+                             setAuthErrorMessage('');
+                           }}
+                           className={`text-xs font-bold transition py-1.5 px-4 rounded-lg cursor-pointer border ${
+                             isSignInMode 
+                               ? 'border-black dark:border-white text-slate-900 dark:text-zinc-100 font-extrabold bg-white dark:bg-zinc-950 shadow-xs' 
+                               : 'border-transparent text-slate-450 dark:text-zinc-500 hover:text-slate-650'
+                           }`}
+                         >
+                           Sign In
+                         </button>
+                       </div>
+                     )}
 
                     {/* 1. Google OAuth Signup option */}
                     {!isSignInMode && (
