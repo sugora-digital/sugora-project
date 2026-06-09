@@ -33,8 +33,8 @@ interface AdminConsoleProps {
   onAddCustomPage: (page: CustomPage) => void;
   onDeleteCustomPage: (slug: string) => void;
   onUpdateCustomPage?: (page: CustomPage) => void;
-  activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages';
-  onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages') => void;
+  activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings';
+  onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings') => void;
 }
 
 const STATS_CHART_MOCK_DATA = [
@@ -67,7 +67,7 @@ export default function AdminConsole({
   activeSubTab,
   onSubTabChange
 }: AdminConsoleProps) {
-  const [activeTab, setActiveTab ] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages'>('stats');
+  const [activeTab, setActiveTab ] = useState<'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings'>('stats');
 
   const currentTab = activeSubTab !== undefined ? activeSubTab : activeTab;
   const setCurrentTab = onSubTabChange !== undefined ? onSubTabChange : setActiveTab;
