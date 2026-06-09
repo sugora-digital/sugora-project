@@ -68,6 +68,10 @@ export default function AdminConsole({
   onAddCustomPage,
   onDeleteCustomPage,
   onUpdateCustomPage,
+  onUpdateSiteSettings,
+  onPurgeAllDemoData,
+  apps,
+  onUpdateApps,
   activeSubTab,
   onSubTabChange
 }: AdminConsoleProps) {

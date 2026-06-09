@@ -43,7 +43,7 @@ import {
   Clock,
   CheckCircle
 } from 'lucide-react';
-import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, UserRole, WebsiteSettings, CustomPage, KYCStatus } from './types';
+import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, UserRole, WebsiteSettings, CustomPage, KYCStatus, SugoraApp } from './types';
 import { INITIAL_PRODUCTS, INITIAL_APPS, INITIAL_MOCK_USERS, INITIAL_MOCK_TICKETS, INITIAL_TRANSACTIONS } from './mockData';
 
 // Component imports
@@ -1081,11 +1081,52 @@ export default function App() {
   };
 
   const handleAddCustomPage = (newPage: CustomPage) => {
-    setCustomPages(prev => [...prev, newPage]);
+    setCustomPages(prev => {
+      const updated = [...prev, newPage];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sugora_custom_pages', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
   const handleDeleteCustomPage = (slug: string) => {
-    setCustomPages(prev => prev.filter(p => p.slug !== slug));
+    setCustomPages(prev => {
+      const updated = prev.filter(p => p.slug !== slug);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sugora_custom_pages', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateSiteSettings = (newSettings: SiteSettings) => {
+    setSiteSettings(newSettings);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_site_settings', JSON.stringify(newSettings));
+    }
+  };
+
+  const handleUpdateAppsList = (updatedApps: SugoraApp[]) => {
+    setAppsList(updatedApps);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_apps_list', JSON.stringify(updatedApps));
+    }
+  };
+
+  const handlePurgeAllDemoData = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_purged', 'true');
+      localStorage.setItem('sugora_products_list', JSON.stringify([]));
+      localStorage.setItem('sugora_apps_list', JSON.stringify([]));
+      localStorage.setItem('sugora_chats_rooms', JSON.stringify([]));
+      localStorage.setItem('sugora_chats_messages', JSON.stringify({}));
+      localStorage.setItem('sugora_custom_pages', JSON.stringify([]));
+    }
+    setProductsList([]);
+    setAppsList([]);
+    setCustomPages([]);
+    setTicketsList([]);
   };
 
   const getActiveTabLogo = () => {
