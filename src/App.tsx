@@ -156,9 +156,34 @@ export default function App() {
 
   // Global Interactive Database States
   const [usersList, setUsersList] = useState<Profile[]>(INITIAL_MOCK_USERS);
-  const [productsList, setProductsList] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [appsList] = useState<typeof INITIAL_APPS>(INITIAL_APPS);
-  const [ticketsList, setTicketsList] = useState<SupportTicket[]>(INITIAL_MOCK_TICKETS);
+  
+  const [productsList, setProductsList] = useState<Product[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_products_list') : null;
+      return stored ? JSON.parse(stored) : [];
+    }
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_products_list') : null;
+    return stored ? JSON.parse(stored) : INITIAL_PRODUCTS;
+  });
+
+  const [appsList, setAppsList] = useState<SugoraApp[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_apps_list') : null;
+      return stored ? JSON.parse(stored) : [];
+    }
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_apps_list') : null;
+    return stored ? JSON.parse(stored) : INITIAL_APPS;
+  });
+
+  const [ticketsList, setTicketsList] = useState<SupportTicket[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      return [];
+    }
+    return INITIAL_MOCK_TICKETS;
+  });
   
   // Wallet & KYC records
   const [wallet, setWallet] = useState<WalletType>({
@@ -176,15 +201,22 @@ export default function App() {
   const [kycRequest, setKycRequest] = useState<KYCRequest | null>(null);
 
   // Site general settings
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    commission_rate: 10,
-    gemini_api_configured: true,
-    messages_limit: 50
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_site_settings') : null;
+    return stored ? JSON.parse(stored) : {
+      commission_rate: 10,
+      gemini_api_configured: true,
+      messages_limit: 50,
+      gemini_api_key: '',
+      chatgpt_api_key: '',
+      ai_provider: 'gemini',
+      chat_retention_days: 7
+    };
   });
 
   // Website Settings State
   const [websiteSettings, setWebsiteSettings] = useState<WebsiteSettings>({
-    site_name: 'Sugora Platform',
+    site_name: 'Alex Platform',
     site_description: 'Redesigning modern mobile link bio services',
     logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
     favicon_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
@@ -202,19 +234,27 @@ export default function App() {
   });
 
   // Dynamic Custom Pages state list
-  const [customPages, setCustomPages] = useState<CustomPage[]>([
-    {
-      id: 'p-1',
-      title: 'About Sugora Ecosystem',
-      slug: 'about-us',
-      content: '<h1>Our Mission</h1><p>Sugora provides standard web engines and link bio structures to empower creators across modern micro-payment frameworks with complete transparency.</p>',
-      seo_title: 'About Sugora Ecosystem - Verified Creators',
-      seo_description: 'Empowering creator bio economies with integrated UPI wallets and store catalogs.',
-      status: 'Published',
-      created_at: new Date().toISOString(),
-      template: 'standard'
+  const [customPages, setCustomPages] = useState<CustomPage[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_custom_pages') : null;
+      return stored ? JSON.parse(stored) : [];
     }
-  ]);
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_custom_pages') : null;
+    return stored ? JSON.parse(stored) : [
+      {
+        id: 'p-1',
+        title: 'About Sugora Ecosystem',
+        slug: 'about-us',
+        content: '<h1>Our Mission</h1><p>Sugora provides standard web engines and link bio structures to empower creators across modern micro-payment frameworks with complete transparency.</p>',
+        seo_title: 'About Sugora Ecosystem - Verified Creators',
+        seo_description: 'Empowering creator bio economies with integrated UPI wallets and store catalogs.',
+        status: 'Published',
+        created_at: new Date().toISOString(),
+        template: 'standard'
+      }
+    ];
+  });
 
   // Purchase state logic
   const [ownedProductIds, setOwnedProductIds] = useState<string[]>([]);
@@ -1772,67 +1812,73 @@ export default function App() {
                     />
                   )}
 
-                  {activeTab === 'chat' && (
-                    <ChatSystem
-                      currentUser={profile}
-                      usersList={usersList}
-                    />
-                  )}
-
-                  {activeTab === 'shop' && (
-                    <ShopMarketplace
-                      products={productsList}
-                      walletBalance={wallet.balance}
-                      ownedProductIds={ownedProductIds}
-                      onPurchaseComplete={handleProductPurchaseDone}
-                    />
-                  )}
-
-                  {activeTab === 'apps' && (
-                    <AppsWebView
-                      apps={appsList}
-                    />
-                  )}
-
-                  {activeTab === 'ai' && (
-                    <AIChatBot
-                      currentUser={profile}
-                    />
-                  )}
-
-                  {activeTab === 'wallet' && (
-                    <WalletKYC
-                      currentUser={profile}
-                      wallet={wallet}
-                      transactions={transactionsList}
-                      kycStatus={kycStatus}
-                      onAddFunds={handleAddFunds}
-                      onWithdrawFunds={handleWithdrawFunds}
-                      onSubmitKYC={handleSubmitKYC}
-                    />
-                  )}
-
-                  {activeTab === 'admin' && profile.role === 'admin' && (
-                    <AdminConsole
-                      users={usersList}
-                      products={productsList}
-                      kycRequests={kycRequest ? [kycRequest] : []}
-                      withdrawRequests={withdrawRequests}
-                      siteSettings={siteSettings}
-                      websiteSettings={websiteSettings}
-                      customPages={customPages}
-                      onApproveKYC={handleApproveKYC}
-                      onRejectKYC={handleRejectKYC}
-                      onApproveWithdrawal={handleApproveWithdrawal}
-                      onAddProduct={handleAddProduct}
-                      onChangeCommission={handleChangeCommission}
-                      onUpdateWebsiteSettings={handleUpdateWebsiteSettings}
-                      onAddCustomPage={handleAddCustomPage}
-                      onDeleteCustomPage={handleDeleteCustomPage}
-                      activeSubTab={adminSubTab}
-                      onSubTabChange={setAdminSubTab}
-                    />
-                  )}
+                   {activeTab === 'chat' && (
+                     <ChatSystem
+                       currentUser={profile}
+                       usersList={usersList}
+                       siteSettings={siteSettings}
+                     />
+                   )}
+ 
+                   {activeTab === 'shop' && (
+                     <ShopMarketplace
+                       products={productsList}
+                       walletBalance={wallet.balance}
+                       ownedProductIds={ownedProductIds}
+                       onPurchaseComplete={handleProductPurchaseDone}
+                     />
+                   )}
+ 
+                   {activeTab === 'apps' && (
+                     <AppsWebView
+                       apps={appsList}
+                     />
+                   )}
+ 
+                   {activeTab === 'ai' && (
+                     <AIChatBot
+                       currentUser={profile}
+                       siteSettings={siteSettings}
+                     />
+                   )}
+ 
+                   {activeTab === 'wallet' && (
+                     <WalletKYC
+                       currentUser={profile}
+                       wallet={wallet}
+                       transactions={transactionsList}
+                       kycStatus={kycStatus}
+                       onAddFunds={handleAddFunds}
+                       onWithdrawFunds={handleWithdrawFunds}
+                       onSubmitKYC={handleSubmitKYC}
+                     />
+                   )}
+ 
+                   {activeTab === 'admin' && profile.role === 'admin' && (
+                     <AdminConsole
+                       users={usersList}
+                       products={productsList}
+                       kycRequests={kycRequest ? [kycRequest] : []}
+                       withdrawRequests={withdrawRequests}
+                       siteSettings={siteSettings}
+                       websiteSettings={websiteSettings}
+                       customPages={customPages}
+                       apps={appsList}
+                       onUpdateSiteSettings={handleUpdateSiteSettings}
+                       onUpdateApps={handleUpdateAppsList}
+                       onPurgeAllDemoData={handlePurgeAllDemoData}
+                       onApproveKYC={handleApproveKYC}
+                       onRejectKYC={handleRejectKYC}
+                       onApproveWithdrawal={handleApproveWithdrawal}
+                       onAddProduct={handleAddProduct}
+                       onChangeCommission={handleChangeCommission}
+                       onUpdateWebsiteSettings={handleUpdateWebsiteSettings}
+                       onAddCustomPage={handleAddCustomPage}
+                       onDeleteCustomPage={handleDeleteCustomPage}
+                       activeSubTab={adminSubTab}
+                       onSubTabChange={setAdminSubTab}
+                     />
+                   )}
 
                   {activeTab === 'support' && (profile.role === 'support' || profile.role === 'admin') && (
                     <SupportConsole

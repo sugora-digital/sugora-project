@@ -182,7 +182,7 @@ export default function AppsWebView({ apps }: AppsWebViewProps) {
         </>
       ) : (
         /* ACTIVE SANDBOX TERMINAL WINDOW */
-        <div className="flex flex-col h-[650px] bg-white rounded-3xl overflow-hidden border border-slate-105 shadow-xl animate-fadeIn">
+        <div className="flex flex-col h-[800px] bg-white rounded-3xl overflow-hidden border border-slate-105 shadow-xl animate-fadeIn">
           {/* Simulated head browser toolbar */}
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
             <div className="flex items-center gap-3">

@@ -8,11 +8,12 @@ import {
   Bot, Send, Trash2, Plus, Sparkles, Copy, Check, Clock, 
   Image, Mic, MicOff, FolderPlus, Folder, Smile, ChevronLeft, ChevronRight, Share2 
 } from 'lucide-react';
-import { Profile, AIConversation, AIMessage } from '../types';
+import { Profile, AIConversation, AIMessage, SiteSettings } from '../types';
 import ReactMarkdown from 'react-markdown';
 
 interface AIChatBotProps {
   currentUser: Profile;
+  siteSettings?: SiteSettings;
 }
 
 interface AIChatFolder {
@@ -27,7 +28,7 @@ interface Reaction {
 
 const POPULAR_EMOJIS = ['👍', '❤️', '😂', '🔥', '👏', '🎉', '💡', '🚀'];
 
-export default function AIChatBot({ currentUser }: AIChatBotProps) {
+export default function AIChatBot({ currentUser, siteSettings }: AIChatBotProps) {
   // Folder categories
   const [folders, setFolders] = useState<AIChatFolder[]>([
     { id: 'f-marketing', name: 'Marketing Tips' },
@@ -63,7 +64,24 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
 
   const [inputText, setInputText] = useState<string>('');
   const [isPendingAI, setIsPendingAI] = useState<boolean>(false);
-  const [creditLimit, setCreditLimit] = useState<number>(50); // counts down from 50
+  
+  const maxLimit = siteSettings?.messages_limit !== undefined ? siteSettings.messages_limit : 50;
+  const [creditLimit, setCreditLimit] = useState<number>(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_ai_message_count') : null;
+    return stored ? Number(stored) : maxLimit;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_ai_message_count', String(creditLimit));
+    }
+  }, [creditLimit]);
+
+  // Synchronize on limit updates
+  useEffect(() => {
+    setCreditLimit(prev => Math.min(prev, maxLimit));
+  }, [maxLimit]);
+
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Simulated Media Attachments
@@ -224,7 +242,8 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: promptText + (currentAttachedImage ? " [Attached Image analysis]" : ""),
-          history: historyToSend
+          history: historyToSend,
+          siteSettings: siteSettings
         })
       });
 
@@ -405,14 +424,14 @@ export default function AIChatBot({ currentUser }: AIChatBotProps) {
         <div className="p-4 border-t border-slate-100 bg-white">
           <div className="rounded-2xl bg-gradient-to-r from-blue-50/50 to-indigo-50/50 p-3.5 border border-slate-100">
             <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
-              <span>Sandbox limits</span>
-              <span className="text-[11px] font-mono font-bold text-indigo-600">{creditLimit}/50 units</span>
+              <span>{siteSettings?.ai_provider || 'gemini'} limits</span>
+              <span className="text-[11px] font-mono font-bold text-indigo-600">{creditLimit}/{maxLimit} units</span>
             </div>
             <div className="w-full bg-slate-150 h-1.5 rounded-full overflow-hidden text-[1px]">
-              <div style={{ width: `${(creditLimit / 50) * 100}%` }} className="bg-indigo-600 h-full transition-all duration-300" />
+              <div style={{ width: `${(creditLimit / maxLimit) * 100}%` }} className="bg-indigo-600 h-full transition-all duration-300" />
             </div>
-            <p className="text-[9px] text-slate-450 mt-2 font-medium leading-relaxed">
-              Sandbox credit counts down per dispatch. Administrative role settings override total allocation directly.
+            <p className="text-[9.5px] text-slate-450 mt-2 font-semibold leading-relaxed">
+              Resets daily. Provider: <span className="font-sans font-black text-indigo-700 uppercase">{siteSettings?.ai_provider || 'gemini'}</span>. Override limits anytime inside administrator configuration page.
             </p>
           </div>
         </div>

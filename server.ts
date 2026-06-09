@@ -49,26 +49,104 @@ app.get('/api/health', (req, res) => {
 
 // AI Chat endpoint
 app.post('/api/ai/chat', async (req, res) => {
-  const { message, history } = req.body;
+  const { message, history, siteSettings } = req.body;
 
   if (!message) {
     res.status(400).json({ error: 'Message is required' });
     return;
   }
 
-  try {
-    const ai = getAIClient();
-    
-    // Structure chat with system instruction
-    const systemInstruction = `You are Sugora AI, a brilliant multi-functional AI assistant embedded in the Sugora.com platform.
+  // Determine provider and keys dynamically
+  const provider = siteSettings?.ai_provider || 'gemini';
+  const geminiKey = siteSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+  const chatgptKey = siteSettings?.chatgpt_api_key || process.env.OPENAI_API_KEY;
+
+  if (provider === 'mock') {
+    const sandboxReplies = [
+      "Hello! I am operating in Sandbox Mock mode. Real AI is idle. Go to **Admin Console > Settings** to configure active OpenAI or Gemini API connections.",
+      "Indeed! I am an interactive mockup agent. To enable live neural completions, enter your credentials in the administrator dashboard.",
+      "Sure! Once your credentials are saved in the admin settings panel, I will respond with full GPT or Google Gemini intelligence!"
+    ];
+    const reply = sandboxReplies[Math.floor(Math.random() * sandboxReplies.length)];
+    res.json({ response: reply, isMock: true });
+    return;
+  }
+
+  const systemInstruction = `You are Sugora AI, a brilliant multi-functional AI assistant embedded in the Sugora.com platform.
 Sugora.com is a premium digital hub containing:
 - Sugora Tree (Linktree-style microsites for users to showcase profiles, links, sell digital downloads and list affiliate products)
 - Shop (An admin-supervised digital products & affiliate links marketplace with direct Razorpay checkouts)
-- Chat (WhatsApp-style instant peer and support communication)
+- Chat (WhatsApp-style peer and support communication)
 - Apps (Embedded browser portals for external services like Instagram, YouTube, X inside Sugora's canvas)
 - Wallet System (UPI & bank withdrawals, referral payouts, sales commissions)
 
 Keep responses concise, helpful, and beautifully formatted in markdown. Refuse illegal tasks.`;
+
+  if (provider === 'chatgpt') {
+    if (!chatgptKey || chatgptKey.trim() === '' || chatgptKey === 'sk-proj-YOUR_KEY') {
+      res.json({
+        response: "ChatGPT Provider selected but no valid OpenAI API Key is configured. Please save a key in your Admin Settings Console, or assign OPENAI_API_KEY inside the workspace environment variables first!",
+        isConfigRequired: true
+      });
+      return;
+    }
+
+    try {
+      const openaiMessages = [
+        { role: 'system', content: systemInstruction },
+        ...(history || []).map((msg: any) => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        })),
+        { role: 'user', content: message }
+      ];
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${chatgptKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: openaiMessages,
+          temperature: 0.7
+        })
+      });
+
+      const data: any = await response.json();
+      if (data.error) {
+        throw new Error(data.error.message || 'OpenAI API returned an error');
+      }
+
+      const reply = data.choices?.[0]?.message?.content || "No response generated.";
+      res.json({ response: reply });
+      return;
+    } catch (err: any) {
+      console.error('Error in ChatGPT chat API:', err);
+      res.status(500).json({ error: err.message || 'Error communicating with OpenAI ChatGPT' });
+      return;
+    }
+  }
+
+  // Default provider is 'gemini'
+  try {
+    if (!geminiKey || geminiKey.trim() === '' || geminiKey === 'MY_GEMINI_API_KEY') {
+      res.json({
+        response: "Gemini Provider selected but no valid Google Gemini API Key is configured. Please save a key in your Admin Settings Console, or assign GEMINI_API_KEY inside the workspace environment secrets!",
+        isConfigRequired: true
+      });
+      return;
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey: geminiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
 
     const chatHistory = (history || []).map((msg: any) => ({
       role: msg.role === 'user' ? 'user' : 'model',
@@ -89,23 +167,7 @@ Keep responses concise, helpful, and beautifully formatted in markdown. Refuse i
 
   } catch (error: any) {
     console.error('Error in Gemini API route:', error);
-    
-    // Provide a beautiful fallback experience for UI testing if API key is not configured in secrets yet
-    if (error.message && error.message.includes('GEMINI_API_KEY')) {
-      const fallbackResponses = [
-        "Welcome to **Sugora AI**! I'm operating in Sandbox Mock mode because the `GEMINI_API_KEY` is not linked. Once you set your API key in **Settings > Secrets**, I'll answer queries with real-time intelligence!",
-        "Double click any card or explore the **Sugora Tree** in the user dashboard! This premium simulator showcases our full-stack layout.",
-        "To run Sugora locally, use the generated `supabase_schema.sql` inside your Supabase project's SQL builder. It creates all tables and automatic triggers successfully!"
-      ];
-      const randomFallback = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
-      res.json({ 
-        response: randomFallback,
-        isDemoFallback: true
-      });
-      return;
-    }
-
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    res.status(500).json({ error: error.message || 'Error communicating with Google Gemini' });
   }
 });
 

@@ -10,11 +10,12 @@ import {
   Coins, Moon, Sun, ChevronDown, LayoutDashboard, ShoppingBag,
   FileText, FolderArchive
 } from 'lucide-react';
-import { Profile, ChatRoom, ChatMessage } from '../types';
+import { Profile, ChatRoom, ChatMessage, SiteSettings } from '../types';
 
 interface ChatSystemProps {
   currentUser: Profile;
   usersList?: Profile[];
+  siteSettings?: SiteSettings;
 }
 
 const INITIAL_ROOMS: ChatRoom[] = [
@@ -108,10 +109,53 @@ const ALL_EMOJIS_CATEGORIES = [
   }
 ];
 
-export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemProps) {
-  const [rooms, setRooms] = useState<ChatRoom[]>(INITIAL_ROOMS);
-  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>('room-support');
+export default function ChatSystem({ currentUser, usersList = [], siteSettings }: ChatSystemProps) {
+  const [rooms, setRooms] = useState<ChatRoom[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_chats_rooms') : null;
+      return stored ? JSON.parse(stored) : [];
+    }
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_chats_rooms') : null;
+    return stored ? JSON.parse(stored) : INITIAL_ROOMS;
+  });
+
+  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    const baseMsgs = isPurged ? {} : INITIAL_MESSAGES;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_chats_messages') : null;
+    const parsed: Record<string, ChatMessage[]> = stored ? JSON.parse(stored) : baseMsgs;
+    
+    // Auto-prune user chats exceeding admin designated age threshold
+    const retentionDays = siteSettings?.chat_retention_days || 7;
+    const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    
+    const pruned: Record<string, ChatMessage[]> = {};
+    Object.keys(parsed).forEach(roomId => {
+      pruned[roomId] = parsed[roomId].filter(m => {
+        const msgTime = new Date(m.created_at).getTime();
+        return msgTime >= cutoffTime;
+      });
+    });
+    return pruned;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_chats_rooms', JSON.stringify(rooms));
+    }
+  }, [rooms]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_chats_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    return isPurged ? '' : 'room-support';
+  });
   const [inputVal, setInputVal] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   

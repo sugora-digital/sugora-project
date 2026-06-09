@@ -7,13 +7,13 @@ import React, { useState } from 'react';
 import { 
   Settings, Users, ShieldAlert, FileText, ShoppingCart, DollarSign, 
   Plus, Check, X, Edit3, Lock, Trash2, Award, Sparkles, Layout, 
-  Smartphone, BarChart2, MessageSquare, ExternalLink, RefreshCw, Upload
+  Smartphone, BarChart2, MessageSquare, ExternalLink, RefreshCw, Upload, Sliders
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, 
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid 
 } from 'recharts';
-import { Profile, Product, KYCRequest, WithdrawRequest, SiteSettings, WebsiteSettings, CustomPage } from '../types';
+import { Profile, Product, KYCRequest, WithdrawRequest, SiteSettings, WebsiteSettings, CustomPage, SugoraApp } from '../types';
 import SugoraLogo from './SugoraLogo';
 
 interface AdminConsoleProps {
@@ -33,6 +33,10 @@ interface AdminConsoleProps {
   onAddCustomPage: (page: CustomPage) => void;
   onDeleteCustomPage: (slug: string) => void;
   onUpdateCustomPage?: (page: CustomPage) => void;
+  onUpdateSiteSettings?: (settings: SiteSettings) => void;
+  onPurgeAllDemoData?: () => void;
+  apps?: SugoraApp[];
+  onUpdateApps?: (updatedApps: SugoraApp[]) => void;
   activeSubTab?: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings';
   onSubTabChange?: (tab: 'stats' | 'users' | 'kyc' | 'shop' | 'branding' | 'pages' | 'settings') => void;
 }
@@ -131,6 +135,21 @@ export default function AdminConsole({
   const [pageSeoDesc, setPageSeoDesc] = useState<string>('');
   const [pageStatus, setPageStatus] = useState<'Published' | 'Draft'>('Published');
   const [pageTemplate, setPageTemplate] = useState<string>('standard');
+
+  // Site API credentials & dynamic configs state variables
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(siteSettings.gemini_api_key || '');
+  const [chatgptApiKey, setChatgptApiKey] = useState<string>(siteSettings.chatgpt_api_key || '');
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'chatgpt' | 'mock'>(siteSettings.ai_provider || 'mock');
+  const [msgsLimit, setMsgsLimit] = useState<number>(siteSettings.messages_limit || 50);
+  const [retentionDays, setRetentionDays] = useState<number>(siteSettings.chat_retention_days || 7);
+
+  // Embedded Apps management state variables
+  const [showAddAppForm, setShowAddAppForm] = useState<boolean>(false);
+  const [editingApp, setEditingApp] = useState<SugoraApp | null>(null);
+  const [appName, setAppName] = useState<string>('');
+  const [appDesc, setAppDesc] = useState<string>('');
+  const [appLogo, setAppLogo] = useState<string>('');
+  const [appUrl, setAppUrl] = useState<string>('');
 
   // Derived financial computations
   const approvedVolume = withdrawRequests
@@ -297,6 +316,76 @@ export default function AdminConsole({
     }
   };
 
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onUpdateSiteSettings) {
+      onUpdateSiteSettings({
+        ...siteSettings,
+        gemini_api_key: geminiApiKey,
+        chatgpt_api_key: chatgptApiKey,
+        ai_provider: aiProvider,
+        messages_limit: Number(msgsLimit),
+        chat_retention_days: Number(retentionDays),
+        gemini_api_configured: geminiApiKey.trim() !== ''
+      });
+      alert('AI Credentials & Conversation limits updated successfully!');
+    }
+  };
+
+  const handleSaveApp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appName.trim() || !appUrl.trim()) return;
+
+    const newApp: SugoraApp = {
+      id: editingApp ? editingApp.id : `app-${Date.now()}`,
+      name: appName.trim(),
+      description: appDesc.trim(),
+      logo: appLogo.trim() || 'AppWindow',
+      url: appUrl.trim()
+    };
+
+    if (onUpdateApps && apps) {
+      if (editingApp) {
+        onUpdateApps(apps.map(a => a.id === editingApp.id ? newApp : a));
+        alert(`App "${newApp.name}" updated successfully!`);
+      } else {
+        onUpdateApps([...apps, newApp]);
+        alert(`New App "${newApp.name}" embedded successfully!`);
+      }
+    }
+
+    setAppName('');
+    setAppDesc('');
+    setAppLogo('');
+    setAppUrl('');
+    setEditingApp(null);
+    setShowAddAppForm(false);
+  };
+
+  const handleStartEditApp = (app: SugoraApp) => {
+    setEditingApp(app);
+    setAppName(app.name);
+    setAppDesc(app.description);
+    setAppLogo(app.logo);
+    setAppUrl(app.url);
+    setShowAddAppForm(true);
+  };
+
+  const handleDeleteApp = (appId: string) => {
+    if (window.confirm('Are you sure you want to remove this sandboxed app?') && onUpdateApps && apps) {
+      onUpdateApps(apps.filter(a => a.id !== appId));
+    }
+  };
+
+  const handleClearDemoData = () => {
+    if (window.confirm('Are you sure you want to REMOVE all template lists, transactions, and custom pages? Logged-in admin and key structures will be kept clean.')) {
+      if (onPurgeAllDemoData) {
+        onPurgeAllDemoData();
+        alert('All demo lists have been purged successfully! Refreshing to dynamic clean mode.');
+      }
+    }
+  };
+
   return (
     <div id="admin-management-container" className="space-y-6 bg-slate-50/20 p-1 md:p-4 rounded-3xl">
       
@@ -321,7 +410,8 @@ export default function AdminConsole({
               { key: 'kyc', label: 'KYC Panel', icon: ShieldAlert },
               { key: 'shop', label: 'Inventory', icon: ShoppingCart },
               { key: 'branding', label: 'Branding', icon: Settings },
-              { key: 'pages', label: 'Page Builder', icon: Layout }
+              { key: 'pages', label: 'Page Builder', icon: Layout },
+              { key: 'settings', label: 'Settings', icon: Sliders }
             ].map(tab => {
               const Icon = tab.icon;
               const isSel = currentTab === tab.key;
@@ -1456,6 +1546,253 @@ export default function AdminConsole({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 7. SETTINGS AND DYNAMIC APP EMBEDS */}
+      {currentTab === 'settings' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* AI Settings Form */}
+          <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-6">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">AI Integration Configurator</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Admin console credentials locker. Activate ChatGPT, Google Gemini integration models instantly.</p>
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Default AI Chat Provider</label>
+                  <select
+                    value={aiProvider}
+                    onChange={(e: any) => setAiProvider(e.target.value)}
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs font-semibold focus:outline-none"
+                  >
+                    <option value="mock">Sandbox Simulator / Support Helper (No API key needed)</option>
+                    <option value="gemini">Google Gemini AI API (gemini-2.5-flash)</option>
+                    <option value="chatgpt">OpenAI ChatGPT API (gpt-4o-mini)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">User Daily Message Limit</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={msgsLimit}
+                    onChange={(e) => setMsgsLimit(Number(e.target.value))}
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs font-semibold focus:outline-none"
+                    placeholder="e.g. 50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Google Gemini API Key</label>
+                  <input
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs font-mono focus:outline-none"
+                    placeholder="AI_STUDIO_KEY..."
+                  />
+                  <p className="text-[9px] text-slate-400 mt-1 font-medium">If blank, falls back to `process.env.GEMINI_API_KEY` or mock assistant.</p>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">OpenAI ChatGPT API Key</label>
+                  <input
+                    type="password"
+                    value={chatgptApiKey}
+                    onChange={(e) => setChatgptApiKey(e.target.value)}
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs font-mono focus:outline-none"
+                    placeholder="sk-proj-..."
+                  />
+                  <p className="text-[9px] text-slate-400 mt-1 font-medium font-sans">Allows prompting OpenAI directly with server-to-server secure routing.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Chat History Retention (Days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={retentionDays}
+                    onChange={(e) => setRetentionDays(Number(e.target.value))}
+                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs font-semibold focus:outline-none"
+                    placeholder="e.g. 7"
+                  />
+                  <p className="text-[9px] text-slate-400 mt-1">Old conversations and responses exceeding this threshold are safely pruned.</p>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-650 hover:opacity-95 text-white font-bold py-3 text-xs transition active:scale-95"
+                  >
+                    Save API & Retention Config
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Apps Embed config */}
+          <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 font-sans">Sugora Embedded Apps Hub</h2>
+                <p className="text-xs text-slate-400 mt-0.5 font-sans">Embed, edit, and audit responsive external custom sites on the main platform hub as safe frames.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingApp(null);
+                  setAppName('');
+                  setAppDesc('');
+                  setAppLogo('🖥️');
+                  setAppUrl('');
+                  setShowAddAppForm(!showAddAppForm);
+                }}
+                className="rounded-xl bg-slate-50 border hover:bg-slate-100 font-extrabold px-3 py-2 text-xs flex items-center gap-1.5 transition active:scale-95"
+              >
+                <Plus className="h-4 w-4" /> {showAddAppForm ? 'Close Editor' : 'Embed New Site'}
+              </button>
+            </div>
+
+            {showAddAppForm && (
+              <form onSubmit={handleSaveApp} className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 space-y-4">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-sans">
+                  {editingApp ? `Edit Embedded App: ${editingApp.name}` : 'Embed Custom External Site'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1 font-sans">App Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={appName}
+                      onChange={(e) => setAppName(e.target.value)}
+                      className="w-full bg-white border rounded-lg px-2.5 py-2 text-xs font-semibold focus:outline-none"
+                      placeholder="e.g. My Portfolio Sheet"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1 font-sans">App Icon Emoji / Logo</label>
+                    <input
+                      type="text"
+                      value={appLogo}
+                      onChange={(e) => setAppLogo(e.target.value)}
+                      className="w-full bg-white border rounded-lg px-2.5 py-2 text-xs focus:outline-none"
+                      placeholder="e.g. 📊 or ShopBag"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 font-sans">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Embedded iframe URL</label>
+                    <input
+                      type="url"
+                      required
+                      value={appUrl}
+                      onChange={(e) => setAppUrl(e.target.value)}
+                      className="w-full bg-white border rounded-lg px-2.5 py-2 text-xs font-semibold focus:outline-none"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">App Description</label>
+                    <textarea
+                      value={appDesc}
+                      onChange={(e) => setAppDesc(e.target.value)}
+                      className="w-full bg-white border rounded-lg px-2.5 py-2 text-xs focus:outline-none h-16"
+                      placeholder="Provide helpful description text..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 font-sans">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddAppForm(false);
+                      setEditingApp(null);
+                    }}
+                    className="px-4 py-2 border rounded-xl text-xs font-extrabold text-slate-500 bg-white hover:bg-slate-5 hover:text-slate-700 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:opacity-95 text-white font-black text-xs transition animate-pulse"
+                  >
+                    {editingApp ? 'Save Changes' : 'Embed App'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-sans">
+              {apps && apps.map((app) => (
+                <div key={app.id} className="p-4 rounded-xl border bg-slate-50/30 flex justify-between items-start">
+                  <div className="space-y-1.5 min-w-0 flex-1 pr-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl shrink-0">{app.logo || '🌐'}</span>
+                      <h3 className="text-xs font-bold text-slate-800 truncate leading-none">{app.name}</h3>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">{app.description || 'No description listed.'}</p>
+                    <div className="text-[9.5px] font-mono text-indigo-700 truncate font-semibold pt-1">{app.url}</div>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleStartEditApp(app)}
+                      className="p-1.5 rounded-lg border bg-white hover:bg-blue-50 hover:text-blue-600 transition"
+                      title="Edit Embedded App"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteApp(app.id)}
+                      className="p-1.5 rounded-lg border bg-white hover:bg-red-50 hover:text-red-500 transition"
+                      title="Remove App"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {(!apps || apps.length === 0) && (
+                <div className="col-span-2 text-center py-10 bg-slate-50 border border-dashed rounded-xl text-slate-400 font-bold">
+                  No custom apps embedded yet. Click "Embed New Site" to start!
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* System Clear / Purge Box */}
+          <div className="bg-red-50/50 border border-red-100 rounded-2xl p-5 shadow-xs space-y-4 font-sans">
+            <div>
+              <h2 className="text-sm font-extrabold text-red-950 flex items-center gap-1.5">
+                ⚠️ Pristine Base System Clean & Demo Purge
+              </h2>
+              <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
+                Clear all template lists, portfolio storefront items, historical transaction cards, and testing tickets to revert Sugora into a polished, production-ready, client-owned baseline.
+              </p>
+            </div>
+            <div>
+              <button
+                onClick={handleClearDemoData}
+                className="rounded-xl bg-red-600 hover:bg-red-700 font-black text-white px-5 py-2.5 text-xs transition active:scale-95 shadow-sm"
+              >
+                Reset All Templates & Purge Mock Data
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
