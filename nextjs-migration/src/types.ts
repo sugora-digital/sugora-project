@@ -210,6 +210,10 @@ export interface SiteSettings {
   commission_rate: number; // base referral/affiliate commission percentage, e.g. 10 (%)
   gemini_api_configured: boolean;
   messages_limit: number; // default limit e.g. 50
+  gemini_api_key?: string;
+  chatgpt_api_key?: string;
+  ai_provider?: 'gemini' | 'chatgpt' | 'mock';
+  chat_retention_days?: number;
 }
 
 export interface WebsiteSettings {

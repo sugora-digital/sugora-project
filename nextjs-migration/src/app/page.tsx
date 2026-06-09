@@ -26,7 +26,7 @@ import {
   Clock,
   CheckCircle
 } from 'lucide-react';
-import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings } from '../types';
+import { Profile, Wallet as WalletType, WalletTransaction, KYCRequest, WithdrawRequest, Product, SupportTicket, SiteSettings, WebsiteSettings, CustomPage, SugoraApp } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_APPS, INITIAL_MOCK_USERS, INITIAL_MOCK_TICKETS, INITIAL_TRANSACTIONS } from '../mockData';
 
 // Component imports
@@ -203,7 +203,12 @@ export default function Home() {
   // Global Interactive Database States
   const [usersList, setUsersList] = useState<Profile[]>(INITIAL_MOCK_USERS);
   const [productsList, setProductsList] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [appsList] = useState<typeof INITIAL_APPS>(INITIAL_APPS);
+  const [appsList, setAppsList] = useState<SugoraApp[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) return [];
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_apps_list') : null;
+    return stored ? JSON.parse(stored) : INITIAL_APPS;
+  });
   const [ticketsList, setTicketsList] = useState<SupportTicket[]>(INITIAL_MOCK_TICKETS);
   
   // Wallet & KYC records
@@ -222,10 +227,62 @@ export default function Home() {
   const [kycRequest, setKycRequest] = useState<KYCRequest | null>(null);
 
   // Site general settings
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    commission_rate: 10,
-    gemini_api_configured: true,
-    messages_limit: 50
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_site_settings') : null;
+    return stored ? JSON.parse(stored) : {
+      commission_rate: 10,
+      gemini_api_configured: true,
+      messages_limit: 50,
+      gemini_api_key: '',
+      chatgpt_api_key: '',
+      ai_provider: 'gemini',
+      chat_retention_days: 7
+    };
+  });
+
+  // Website Settings State
+  const [websiteSettings, setWebsiteSettings] = useState<WebsiteSettings>(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_website_settings') : null;
+    return stored ? JSON.parse(stored) : {
+      site_name: 'Alex Platform',
+      site_description: 'Redesigning modern mobile link bio services',
+      logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+      favicon_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+      footer_logo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150',
+      logo_sugora_chat: 'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&q=80&w=150',
+      logo_ai_chat: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=150',
+      logo_sugora_tree: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&q=80&w=150',
+      logo_sugora_shop: 'https://images.unsplash.com/photo-1472851294608-062f824d296e?auto=format&fit=crop&q=80&w=150',
+      logo_sugora_apps: 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?auto=format&fit=crop&q=80&w=150',
+      tagline: 'Connect. Create. Monetize.',
+      email: 'hello@sugora.com',
+      phone: '+91 98765 43210',
+      whatsapp: '+91 98765 43210',
+      address: 'Mumbai, Maharashtra, India'
+    };
+  });
+
+  // Dynamic Custom Pages state list
+  const [customPages, setCustomPages] = useState<CustomPage[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_custom_pages') : null;
+      return stored ? JSON.parse(stored) : [];
+    }
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_custom_pages') : null;
+    return stored ? JSON.parse(stored) : [
+      {
+        id: 'p-1',
+        title: 'About Sugora Ecosystem',
+        slug: 'about-us',
+        content: '<h1>Our Mission</h1><p>Sugora provides standard web engines and link bio structures to empower creators across modern micro-payment frameworks with complete transparency.</p>',
+        seo_title: 'About Sugora Ecosystem - Verified Creators',
+        seo_description: 'Empowering creator bio economies with integrated UPI wallets and store catalogs.',
+        status: 'Published',
+        created_at: new Date().toISOString(),
+        template: 'standard'
+      }
+    ];
   });
 
   // Purchase state logic
@@ -688,6 +745,82 @@ export default function Home() {
 
   const handleResolveSupportTicket = (ticketId: string) => {
     setTicketsList(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'resolved' } : t));
+  };
+
+  const handleUpdateWebsiteSettings = (newSettings: WebsiteSettings) => {
+    setWebsiteSettings(newSettings);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_website_settings', JSON.stringify(newSettings));
+    }
+  };
+
+  const handleAddCustomPage = (newPage: CustomPage) => {
+    setCustomPages(prev => {
+      const updated = [...prev, pageSlugCollisionRemedy(prev, newPage)];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sugora_custom_pages', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const pageSlugCollisionRemedy = (pages: CustomPage[], page: CustomPage) => {
+    let slug = page.slug;
+    let counter = 1;
+    while (pages.some(p => p.slug === slug && p.id !== page.id)) {
+      slug = `${page.slug}-${counter}`;
+      counter++;
+    }
+    return { ...page, slug };
+  };
+
+  const handleUpdateCustomPage = (updatedPage: CustomPage) => {
+    setCustomPages(prev => {
+      const updated = prev.map(p => p.id === updatedPage.id ? pageSlugCollisionRemedy(prev, updatedPage) : p);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sugora_custom_pages', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteCustomPage = (slug: string) => {
+    setCustomPages(prev => {
+      const updated = prev.filter(p => p.slug !== slug);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sugora_custom_pages', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateSiteSettings = (newSettings: SiteSettings) => {
+    setSiteSettings(newSettings);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_site_settings', JSON.stringify(newSettings));
+    }
+  };
+
+  const handleUpdateAppsList = (updatedApps: SugoraApp[]) => {
+    setAppsList(updatedApps);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_apps_list', JSON.stringify(updatedApps));
+    }
+  };
+
+  const handlePurgeAllDemoData = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_purged', 'true');
+      localStorage.setItem('sugora_products_list', JSON.stringify([]));
+      localStorage.setItem('sugora_apps_list', JSON.stringify([]));
+      localStorage.setItem('sugora_chats_rooms', JSON.stringify([]));
+      localStorage.setItem('sugora_chats_messages', JSON.stringify({}));
+      localStorage.setItem('sugora_custom_pages', JSON.stringify([]));
+    }
+    setProductsList([]);
+    setAppsList([]);
+    setCustomPages([]);
+    setTicketsList([]);
   };
 
   return (
@@ -1236,11 +1369,21 @@ export default function Home() {
                       kycRequests={kycRequest ? [kycRequest] : []}
                       withdrawRequests={withdrawRequests}
                       siteSettings={siteSettings}
+                      websiteSettings={websiteSettings}
+                      customPages={customPages}
+                      apps={appsList}
                       onApproveKYC={handleApproveKYC}
                       onRejectKYC={handleRejectKYC}
                       onApproveWithdrawal={handleApproveWithdrawal}
                       onAddProduct={handleAddProduct}
                       onChangeCommission={handleChangeCommission}
+                      onUpdateWebsiteSettings={handleUpdateWebsiteSettings}
+                      onAddCustomPage={handleAddCustomPage}
+                      onDeleteCustomPage={handleDeleteCustomPage}
+                      onUpdateCustomPage={handleUpdateCustomPage}
+                      onUpdateSiteSettings={handleUpdateSiteSettings}
+                      onUpdateApps={handleUpdateAppsList}
+                      onPurgeAllDemoData={handlePurgeAllDemoData}
                       activeSubTab={adminSubTab}
                       onSubTabChange={setAdminSubTab}
                     />
