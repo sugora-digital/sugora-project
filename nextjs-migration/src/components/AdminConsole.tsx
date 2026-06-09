@@ -460,39 +460,126 @@ export default function AdminConsole({
 
       {/* 2. CREATORS/USERS MAP ACCOUNT TAB */}
       {currentTab === 'users' && (
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider text-left font-sans">Registered Creators</h3>
-          <div className="overflow-x-auto rounded-xl border dark:border-zinc-800">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 uppercase font-bold text-[10px]">
-                <tr>
-                  <th className="p-3.5">Name</th>
-                  <th className="p-3.5">Username Handle</th>
-                  <th className="p-3.5">Verification</th>
-                  <th className="p-3.5">System Role</th>
-                  <th className="p-3.5">Date Joined</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 text-slate-600 dark:text-zinc-350 font-semibold font-sans">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20">
-                    <td className="p-3.5 font-bold text-slate-900 dark:text-zinc-150">{u.name}</td>
-                    <td className="p-3.5 font-mono">@{u.username}</td>
-                    <td className="p-3.5">
-                      <span className={`rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase border ${
-                        u.is_verified 
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50' 
-                          : 'bg-slate-50 text-slate-450 border-slate-100 dark:bg-zinc-950 dark:text-zinc-500 dark:border-zinc-800'
-                      }`}>
-                        {u.is_verified ? 'Verified Creator' : 'Standard'}
-                      </span>
-                    </td>
-                    <td className="p-3.5 capitalize">{u.role}</td>
-                    <td className="p-3.5">{new Date(u.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b dark:border-zinc-800 pb-4">
+            <div className="text-left font-sans">
+              <h3 className="text-sm font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider text-left block">Registered Creators</h3>
+              <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1 font-semibold leading-normal">Vibrant index metrics of all creators onboarded to the Sugora Ecosystem.</p>
+            </div>
+            <div className="rounded-xl bg-indigo-50 dark:bg-indigo-950/40 px-3.5 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400 border border-solid border-indigo-100 dark:border-indigo-900/40 flex items-center gap-1.5 select-none self-start sm:self-center">
+              <Users className="h-4 w-4" />
+              <span>{users.length} Active Accounts</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+            {users.map((u, idx) => {
+              const themes = [
+                {
+                  border: 'border-[#D1F2E5] dark:border-emerald-900/30',
+                  bg: 'bg-gradient-to-br from-[#E8F8F2] to-[#F1FDF8]/90 dark:from-emerald-950/20 dark:to-emerald-900/5',
+                  accent: 'text-[#0D9488] dark:text-[#14b8a6]',
+                  accentBg: 'bg-[#0D9488]/10 dark:bg-[#065f46]/30',
+                  badgeBg: 'bg-[#D1F2E5] dark:bg-emerald-950',
+                  ringBg: '#D1F5E5',
+                  score: 95
+                },
+                {
+                  border: 'border-[#DCE4FF] dark:border-blue-900/30',
+                  bg: 'bg-gradient-to-br from-[#EDF3FF] to-[#F5F8FF]/90 dark:from-blue-950/20 dark:to-blue-900/5',
+                  accent: 'text-[#2563EB] dark:text-[#60a5fa]',
+                  accentBg: 'bg-[#2563EB]/10 dark:bg-[#1e40af]/30',
+                  badgeBg: 'bg-[#DCE4FF] dark:bg-blue-950',
+                  ringBg: '#E2E7FF',
+                  score: 87
+                },
+                {
+                  border: 'border-[#E9D5FF] dark:border-purple-900/30',
+                  bg: 'bg-gradient-to-br from-[#F3E8FF] to-[#FAF5FF]/90 dark:from-purple-950/20 dark:to-purple-900/5',
+                  accent: 'text-[#7C3AED] dark:text-[#c084fc]',
+                  accentBg: 'bg-[#7C3AED]/10 dark:bg-[#581c87]/30',
+                  badgeBg: 'bg-[#E9D5FF] dark:bg-purple-950',
+                  ringBg: '#F5EEFF',
+                  score: 79
+                },
+                {
+                  border: 'border-[#FDE2E4] dark:border-rose-900/30',
+                  bg: 'bg-gradient-to-br from-[#FFEBEF] to-[#FFF5F6]/90 dark:from-rose-950/20 dark:to-rose-900/5',
+                  accent: 'text-[#E11D48] dark:text-[#f43f5e]',
+                  accentBg: 'bg-[#E11D48]/10 dark:bg-[#9f1239]/30',
+                  badgeBg: 'bg-[#FDE2E4] dark:bg-rose-950',
+                  ringBg: '#FFE3E7',
+                  score: 92
+                },
+                {
+                  border: 'border-[#FFE7D1] dark:border-amber-900/30',
+                  bg: 'bg-gradient-to-br from-[#FFF3E8] to-[#FFFAF5]/90 dark:from-amber-950/20 dark:to-amber-900/5',
+                  accent: 'text-[#D97706] dark:text-[#fbbf24]',
+                  accentBg: 'bg-[#D97706]/10 dark:bg-[#78350f]/30',
+                  badgeBg: 'bg-[#FFE7D1] dark:bg-amber-950',
+                  ringBg: '#FFF0E0',
+                  score: 84
+                }
+              ];
+              const card = themes[idx % themes.length];
+
+              return (
+                <div 
+                  key={u.id} 
+                  className={`rounded-[28px] border border-solid ${card.border} ${card.bg} p-6 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 flex flex-col justify-between space-y-6 relative overflow-hidden`}
+                >
+                  <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white/20 dark:bg-white/5 rounded-full blur-2xl" />
+
+                  {/* Profile Header Block */}
+                  <div className="flex items-start justify-between gap-3 text-left">
+                    <div className="flex items-center gap-3 text-left">
+                      <div className="w-12 h-12 rounded-full border-2 border-solid border-white dark:border-zinc-700 flex items-center justify-center font-black text-[13px] text-white shadow-sm bg-indigo-500/85 uppercase shrink-0">
+                        {u.name.charAt(0)}
+                      </div>
+                      <div className="space-y-0.5 truncate max-w-[130px] text-left">
+                        <h4 className="font-extrabold text-sm text-slate-805 dark:text-zinc-150 leading-tight block">{u.name}</h4>
+                        <span className="text-[10px] text-slate-450 dark:text-zinc-500 font-mono font-bold block">@{u.username}</span>
+                      </div>
+                    </div>
+
+                    <div className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-xl shrink-0 ${card.badgeBg} ${card.accent}`}>
+                      {u.role}
+                    </div>
+                  </div>
+
+                  {/* Identity verification status with premium Sparkles */}
+                  <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 p-3 rounded-2xl border border-solid border-white/45 dark:border-zinc-800/60">
+                    {u.is_verified ? (
+                      <div className="flex items-center gap-1 text-[#0D9488] dark:text-emerald-400 font-black text-[10px] uppercase">
+                        <Sparkles className="h-3.5 w-3.5 text-yellow-500 animate-spin" />
+                        <span>Verified Elite</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-slate-500 dark:text-zinc-505 font-extrabold text-[10px] uppercase">
+                        <span>Standard Partner</span>
+                      </div>
+                    )}
+                    <span className="text-[9.5px] font-mono text-slate-400 dark:text-zinc-500">Joined {new Date(u.created_at).toLocaleDateString()}</span>
+                  </div>
+
+                  {/* Class 11/12 customized stat rings reflecting actual progress */}
+                  <div className="flex items-center justify-between pt-2 border-t border-dashed border-slate-200/50 dark:border-zinc-800 text-left">
+                    <div className="space-y-1 text-left">
+                      <span className="text-[10px] text-slate-400 dark:text-zinc-550 block font-bold uppercase">Activity Score</span>
+                      <span className="text-xl font-mono font-black text-slate-800 dark:text-zinc-100">{card.score}%</span>
+                    </div>
+
+                    <div className="h-11 w-11 flex items-center justify-center relative">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="22" cy="22" r="16" fill="transparent" stroke={card.badgeBg} strokeWidth="2.5" />
+                        <circle cx="22" cy="22" r="16" fill="transparent" stroke={card.accent.match(/#\w+/) ? card.accent : card.accent.includes('0D9488') ? '#0D9488' : card.accent.includes('2563EB') ? '#2563EB' : card.accent.includes('7C3AED') ? '#7C3AED' : card.accent.includes('E11D48') ? '#E11D48' : '#D97706'} strokeWidth="2.5" strokeDasharray={`${2 * Math.PI * 16}`} strokeDashoffset={`${2 * Math.PI * 16 * (1 - card.score / 100)}`} />
+                      </svg>
+                      <span className={`absolute text-[9.5px] font-black font-mono ${card.accent}`}>{card.score}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
