@@ -10,11 +10,12 @@ import {
   Coins, Moon, Sun, ChevronDown, LayoutDashboard, ShoppingBag,
   FileText, FolderArchive
 } from 'lucide-react';
-import { Profile, ChatRoom, ChatMessage } from '../types';
+import { Profile, ChatRoom, ChatMessage, SiteSettings } from '../types';
 
 interface ChatSystemProps {
   currentUser: Profile;
   usersList?: Profile[];
+  siteSettings?: SiteSettings;
 }
 
 const INITIAL_ROOMS: ChatRoom[] = [
@@ -108,10 +109,53 @@ const ALL_EMOJIS_CATEGORIES = [
   }
 ];
 
-export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemProps) {
-  const [rooms, setRooms] = useState<ChatRoom[]>(INITIAL_ROOMS);
-  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>('room-support');
+export default function ChatSystem({ currentUser, usersList = [], siteSettings }: ChatSystemProps) {
+  const [rooms, setRooms] = useState<ChatRoom[]>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    if (isPurged) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_chats_rooms') : null;
+      return stored ? JSON.parse(stored) : [];
+    }
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_chats_rooms') : null;
+    return stored ? JSON.parse(stored) : INITIAL_ROOMS;
+  });
+
+  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    const baseMsgs = isPurged ? {} : INITIAL_MESSAGES;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('sugora_chats_messages') : null;
+    const parsed: Record<string, ChatMessage[]> = stored ? JSON.parse(stored) : baseMsgs;
+    
+    // Auto-prune user chats exceeding admin designated age threshold
+    const retentionDays = siteSettings?.chat_retention_days || 7;
+    const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    
+    const pruned: Record<string, ChatMessage[]> = {};
+    Object.keys(parsed).forEach(roomId => {
+      pruned[roomId] = parsed[roomId].filter(m => {
+        const msgTime = new Date(m.created_at).getTime();
+        return msgTime >= cutoffTime;
+      });
+    });
+    return pruned;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_chats_rooms', JSON.stringify(rooms));
+    }
+  }, [rooms]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sugora_chats_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(() => {
+    const isPurged = typeof window !== 'undefined' && localStorage.getItem('sugora_purged') === 'true';
+    return isPurged ? '' : 'room-support';
+  });
   const [inputVal, setInputVal] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
@@ -390,7 +434,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="w-full flex flex-col p-0 md:p-6 bg-gradient-to-tr from-[#EAEDFB] via-[#F8F9FE] to-[#FDF5F6] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 rounded-[32px] shadow-sm select-none"
+      className="w-full flex flex-col p-0 md:p-6 bg-gradient-to-tr from-[#EAEDFB] via-[#F8F9FE] to-[#FDF5F6] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 rounded-[32px] shadow-sm select-none animate-fade-in"
     >
       {/* File input handle */}
       <input 
@@ -409,61 +453,6 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
           <p className="text-xs opacity-75">Images, Videos, PDFs & Documents up to 50MB</p>
         </div>
       )}
-
-      {/* 1. CUSTOM TOP HEADER DIRECTLY REFLECTING Mockup */}
-      <header id="sugora-chat-mockup-header" className="w-full mb-6 flex flex-wrap items-center justify-between gap-4 px-2 md:px-0 font-sans">
-        {/* Left Side: SUGORA CHAT BRAND */}
-        <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200/50 dark:border-zinc-800 shadow-xs">
-          <div className="relative w-8 h-8 rounded-xl overflow-hidden bg-zinc-900 flex items-center justify-center border border-[#eceff1]">
-            <img 
-              src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80" 
-              className="w-full h-full object-cover" 
-              alt="logo icon"
-            />
-            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-950" />
-          </div>
-          <span className="text-xs font-black tracking-widest text-slate-800 dark:text-zinc-100 uppercase">
-            SUGORA <span className="text-indigo-600">CHAT</span>
-          </span>
-        </div>
-
-        {/* Right Side Controls */}
-        <div className="flex items-center gap-4">
-          {/* EARN COINS BUTTON */}
-          <button className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-[#FF8C00] to-[#FF4500] text-white text-[11px] font-black tracking-widest uppercase rounded-2xl shadow-sm hover:translate-y-[-1px] active:translate-y-[0px] transition-all cursor-pointer">
-            <Coins className="h-3.5 w-3.5" />
-            <span>EARN COINS</span>
-          </button>
-
-          {/* Moon Switcher placeholder */}
-          <button className="p-2.5 bg-white dark:bg-zinc-850 hover:bg-slate-50 border border-slate-200 dark:border-zinc-800 rounded-full transition cursor-pointer text-slate-600 dark:text-zinc-300 shadow-xs">
-            <Moon className="h-4.5 w-4.5" />
-          </button>
-
-          {/* Active Profile block */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200/50 dark:border-zinc-800 rounded-2xl shadow-xs">
-            <div className="relative">
-              <img 
-                src={currentUser?.avatar_url || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150"} 
-                className="w-8 h-8 rounded-full object-cover border border-slate-100 dark:border-zinc-800" 
-                alt="user avatar" 
-                referrerPolicy="no-referrer"
-              />
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
-            </div>
-            
-            <div className="text-left leading-tight hidden sm:block">
-              <span className="block text-[11.5px] font-extrabold text-slate-800 dark:text-zinc-150 leading-none">
-                {currentUser?.name || "flapzo india"}
-              </span>
-              <span className="text-[8.5px] uppercase font-black text-indigo-600 dark:text-indigo-400 block tracking-wider mt-0.5">
-                {currentUser?.role || "ADMIN"}
-              </span>
-            </div>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden sm:block ml-1" />
-          </div>
-        </div>
-      </header>
 
       {/* Main split dashboard panel layout */}
       <div 
@@ -517,7 +506,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
                           <img src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'} className="h-6 w-6 rounded-lg object-cover bg-slate-100" referrerPolicy="no-referrer" />
                           <span className="text-slate-800 dark:text-zinc-100 truncate font-bold">{user.name}</span>
                         </div>
-                        <UserPlus className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                        <UserPlus className="h-3.5 w-3.5 text-indigo-650 shrink-0" />
                       </button>
                     ))}
                   </div>
@@ -821,7 +810,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
                       <button
                         type="button"
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="text-slate-400 hover:text-slate-650 transition cursor-pointer bg-transparent border-0 ml-1.5 shrink-0"
+                        className="text-slate-400 hover:text-slate-655 transition cursor-pointer bg-transparent border-0 ml-1.5 shrink-0"
                       >
                         <Smile className="h-5 w-5" />
                       </button>
@@ -858,8 +847,6 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
                   </span>
                 </div>
 
-
-
                 {/* Unicode category picker */}
                 {showEmojiPicker && (
                   <div className="mt-3.5 border border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50 dark:bg-zinc-900/60 p-3.5 space-y-3 font-sans relative z-10 animate-fadeIn text-left">
@@ -867,7 +854,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
                       <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">UNICODE EMOJI CATEGORY</span>
                       <button 
                         onClick={() => setShowEmojiPicker(false)} 
-                        className="text-slate-400 hover:text-slate-600 bg-transparent border-0"
+                        className="text-slate-400 hover:text-slate-655 bg-transparent border-0"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -881,7 +868,7 @@ export default function ChatSystem({ currentUser, usersList = [] }: ChatSystemPr
                           onClick={() => setActiveEmojiCategory(c_idx)}
                           className={`px-2.5 py-1 text-[9.5px] font-extrabold rounded-lg shrink-0 transition select-none cursor-pointer border-0 ${
                             activeEmojiCategory === c_idx 
-                              ? 'bg-indigo-650 text-white' 
+                              ? 'bg-indigo-600 text-white' 
                               : 'bg-white hover:bg-slate-50 dark:bg-zinc-800 text-slate-500'
                           }`}
                         >

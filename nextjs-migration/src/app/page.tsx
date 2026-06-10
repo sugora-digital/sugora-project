@@ -1320,6 +1320,8 @@ export default function Home() {
                   {activeTab === 'chat' && (
                     <ChatSystem
                       currentUser={profile}
+                      usersList={usersList}
+                      siteSettings={siteSettings}
                     />
                   )}
 
@@ -1341,6 +1343,7 @@ export default function Home() {
                   {activeTab === 'ai' && (
                     <AIChatBot
                       currentUser={profile}
+                      siteSettings={siteSettings}
                     />
                   )}
 
